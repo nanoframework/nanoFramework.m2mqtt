@@ -85,7 +85,7 @@ namespace nanoFramework.M2Mqtt.Messages
             msg.MessageId = (ushort)((buffer[index++] << 8) & 0xFF00);
             msg.MessageId |= (buffer[index++]);
 
-            if (protocolVersion == MqttProtocolVersion.Version_5)
+            if ((protocolVersion == MqttProtocolVersion.Version_5) && (index < buffer.Length))
             {
                 // size of the properties
                 int propSize = EncodeDecodeHelper.GetPropertySize(buffer, ref index);

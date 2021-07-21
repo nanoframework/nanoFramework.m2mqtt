@@ -55,7 +55,7 @@ namespace nanoFramework.M2Mqtt.Messages
 
             // already know remaininglength is zero (MQTT specification),
             // so it isn't necessary to read other data from socket
-            MqttMsgBase.DecodeVariableByte(channel);
+            DecodeVariableByte(channel);
 
             return msg;
         }

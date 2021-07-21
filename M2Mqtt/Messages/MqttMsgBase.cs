@@ -214,6 +214,20 @@ namespace nanoFramework.M2Mqtt.Messages
                 return sb.ToString();
             }
 
+            MqttQoSLevel[] qosLevel = value as MqttQoSLevel[];
+            if (qosLevel != null)
+            {
+                string hexChars = "0123456789ABCDEF";
+                StringBuilder sb = new StringBuilder(qosLevel.Length * 2);
+                for (int i = 0; i < qosLevel.Length; ++i)
+                {
+                    sb.Append(hexChars[(byte)qosLevel[i] >> 4]);
+                    sb.Append(hexChars[(byte)qosLevel[i] & 0x0F]);
+                }
+
+                return sb.ToString();
+            }
+
             object[] list = value as object[];
             if (list != null)
             {
