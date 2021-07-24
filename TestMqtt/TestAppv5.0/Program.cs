@@ -17,11 +17,11 @@ namespace TestAppv5._0
     public class Program
     {
         private const string Ssid = "ssid";
-        private const string Paswword = "psswrd";
+        private const string Paswword = "pswd";
 
-        private const string IoTHub = "mqtt5test.";
+        private const string IoTHub = "youriot.azure-devices.net";
         private const string DeviceID = "nanoTestDevice";
-        private const string Sas = "";
+        private const string Sas = "atokenbase64encoded";
 
         public static void Main()
         {
@@ -40,6 +40,7 @@ namespace TestAppv5._0
             //MqttClient mqtt = new MqttClient("broker.emqx.io", 8883, true, new X509Certificate(CertEMQX), null, MqttSslProtocols.TLSv1_2);
             // Azure IoT Edge
             MqttClient mqtt = new MqttClient(IoTHub, 8883, true, new X509Certificate(CertAzure), null, MqttSslProtocols.TLSv1_2);
+
             mqtt.ProtocolVersion = MqttProtocolVersion.Version_5;
             mqtt.ConnectionOpened += MqttConnectionOpened;
             mqtt.ConnectionClosed += MqttConnectionClosed;
@@ -52,26 +53,72 @@ namespace TestAppv5._0
             // Seems like no need of password or user name for Mosquitto or EMQX
             // var ret = mqtt.Connect("nanoTestDevice", true);
             // Need device ID and Sas token for Azure
-            var ret = mqtt.Connect(DeviceID, true);
+
+            var at = DateTime.UtcNow;
+            var atString = (at.ToUnixTimeSeconds() * 1000).ToString();
+            var expiry = at.AddMinutes(40);
+            var expiryString = (expiry.ToUnixTimeSeconds() * 1000).ToString();
+            string toSign = $"{IoTHub}\n{DeviceID}\n\n{atString}\n{expiryString}\n";
+            var hmac = new HMACSHA256(Convert.FromBase64String(Sas));
+            var sas = hmac.ComputeHash(Encoding.UTF8.GetBytes(toSign));
+            mqtt.AuthenticationMethod = "SAS";
+            mqtt.AuthenticationData = sas;
+            mqtt.UserProperties.Add(new UserProperty("sas-at", atString));
+            mqtt.UserProperties.Add(new UserProperty("sas-expiry", expiryString));
+            mqtt.UserProperties.Add(new UserProperty("api-version", "2020-10-01-preview"));
+            mqtt.UserProperties.Add(new UserProperty("host", IoTHub));
+            var ret = mqtt.Connect(DeviceID,
+                null,
+                null,
+                false,
+                MqttQoSLevel.AtLeastOnce,
+                false, null,
+                null,
+                true,
+                60
+                );
+
             if (ret != MqttReasonCode.Success)
             {
                 Debug.WriteLine($"ERROR connecting: {ret}");
+                mqtt.Disconnect();
+                return;
+            }
+
+            // 30 seconds max waiting
+            var token = new CancellationTokenSource(30000).Token;
+            while (!mqtt.IsConnected && !token.IsCancellationRequested)
+            {
+                Thread.Sleep(200);
+            }
+
+            if (token.IsCancellationRequested)
+            {
+                Debug.WriteLine($"Too long time to connect, connection closed");
+                mqtt.Disconnect();
                 return;
             }
 
             // Uncomment to get flooded with topics
             // mqtt.Subscribe(new string[] { "$SYS/#" }, new MqttQoSLevel[] { MqttQoSLevel.AtLeastOnce });
-            mqtt.Subscribe(new string[] { "nanoTestDevice/#" }, new MqttQoSLevel[] { MqttQoSLevel.AtLeastOnce });
+            //mqtt.Subscribe(new string[] { "nanoTestDevice/#" }, new MqttQoSLevel[] { MqttQoSLevel.AtLeastOnce });
+            mqtt.Subscribe(new string[] { "$iothub/commands" }, new MqttQoSLevel[] { MqttQoSLevel.AtLeastOnce });
 
-            mqtt.UserProperties.Add("my beautiful property");
-            for (int i = 0; i < 100; i++)
+            //mqtt.UserProperties.Add(new UserProperty("my beautiful", "property"));
+            for (int i = 0; (i < 100) && mqtt.IsConnected; i++)
             {
-                var number = mqtt.Publish("nanoTestDevice/publish", Encoding.UTF8.GetBytes($"{{\"Number\":{i}}}"), MqttQoSLevel.ExactlyOnce, false);
+                // For normal servers
+                // var number = mqtt.Publish("nanoTestDevice/publish", Encoding.UTF8.GetBytes($"{{\"Number\":{i}}}"), MqttQoSLevel.ExactlyOnce, false);
+                // For Azure IoT
+                var number = mqtt.Publish("$iothub/telemetry", Encoding.UTF8.GetBytes($"{{\"Number\":{i}}}"), MqttQoSLevel.AtLeastOnce, false);
                 Debug.WriteLine($"Posted message: {number}");
-                Thread.Sleep(5000);
+                Thread.Sleep(10000);
             }
 
-            mqtt.Disconnect();
+            if (mqtt.IsConnected)
+            {
+                mqtt.Disconnect();
+            }
 
             Thread.Sleep(Timeout.Infinite);
         }
@@ -136,41 +183,13 @@ namespace TestAppv5._0
             Debug.WriteLine($"  Shared identifier available: {e.Message.SubscriptionIdentifiersAvailable}");
             Debug.WriteLine($"  Topic alias max: {e.Message.TopicAliasMaximum}");
             Debug.WriteLine($"  Num user props: {e.Message.UserProperties.Count}");
+            foreach (UserProperty prop in e.Message.UserProperties)
+            {
+                Debug.WriteLine($"    Key  : {prop.Name}");
+                Debug.WriteLine($"    Value: {prop.Value}");
+            }
+
             Debug.WriteLine($"  Wildcard available: {e.Message.WildcardSubscriptionAvailable}");
-        }
-
-        string GetSharedAccessSignature(string keyName, string sharedAccessKey, string resource, TimeSpan tokenTimeToLive)
-        {
-            // http://msdn.microsoft.com/en-us/library/azure/dn170477.aspx
-            // the canonical Uri scheme is http because the token is not amqp specific
-            // signature is computed from joined encoded request Uri string and expiry string
-
-            var exp = DateTime.UtcNow.ToUnixTimeSeconds() + (long)tokenTimeToLive.TotalSeconds;
-
-            string expiry = exp.ToString();
-            string encodedUri = HttpUtility.UrlEncode(resource);
-
-            var hmacsha256 = new HMACSHA256(Convert.FromBase64String(sharedAccessKey));
-            byte[] hmac = hmacsha256.ComputeHash(Encoding.UTF8.GetBytes(encodedUri + "\n" + expiry));
-            string sig = Convert.ToBase64String(hmac);
-
-            if (keyName != null)
-            {
-                return String.Format(
-                "SharedAccessSignature sr={0}&sig={1}&se={2}&skn={3}",
-                encodedUri,
-                HttpUtility.UrlEncode(sig),
-                HttpUtility.UrlEncode(expiry),
-                HttpUtility.UrlEncode(keyName));
-            }
-            else
-            {
-                return String.Format(
-                    "SharedAccessSignature sr={0}&sig={1}&se={2}",
-                    encodedUri,
-                    HttpUtility.UrlEncode(sig),
-                    HttpUtility.UrlEncode(expiry));
-            }
         }
 
         private const string CertMosquitto = @"-----BEGIN CERTIFICATE-----
@@ -235,7 +254,27 @@ jjxDah2nGN59PRbxYvnKkKj9
 -----END CERTIFICATE-----
 ";
 
-        private const string CertAzure = @"
+        private const string CertAzure = @"-----BEGIN CERTIFICATE-----
+MIIDdzCCAl+gAwIBAgIEAgAAuTANBgkqhkiG9w0BAQUFADBaMQswCQYDVQQGEwJJ
+RTESMBAGA1UEChMJQmFsdGltb3JlMRMwEQYDVQQLEwpDeWJlclRydXN0MSIwIAYD
+VQQDExlCYWx0aW1vcmUgQ3liZXJUcnVzdCBSb290MB4XDTAwMDUxMjE4NDYwMFoX
+DTI1MDUxMjIzNTkwMFowWjELMAkGA1UEBhMCSUUxEjAQBgNVBAoTCUJhbHRpbW9y
+ZTETMBEGA1UECxMKQ3liZXJUcnVzdDEiMCAGA1UEAxMZQmFsdGltb3JlIEN5YmVy
+VHJ1c3QgUm9vdDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKMEuyKr
+mD1X6CZymrV51Cni4eiVgLGw41uOKymaZN+hXe2wCQVt2yguzmKiYv60iNoS6zjr
+IZ3AQSsBUnuId9Mcj8e6uYi1agnnc+gRQKfRzMpijS3ljwumUNKoUMMo6vWrJYeK
+mpYcqWe4PwzV9/lSEy/CG9VwcPCPwBLKBsua4dnKM3p31vjsufFoREJIE9LAwqSu
+XmD+tqYF/LTdB1kC1FkYmGP1pWPgkAx9XbIGevOF6uvUA65ehD5f/xXtabz5OTZy
+dc93Uk3zyZAsuT3lySNTPx8kmCFcB5kpvcY67Oduhjprl3RjM71oGDHweI12v/ye
+jl0qhqdNkNwnGjkCAwEAAaNFMEMwHQYDVR0OBBYEFOWdWTCCR1jMrPoIVDaGezq1
+BE3wMBIGA1UdEwEB/wQIMAYBAf8CAQMwDgYDVR0PAQH/BAQDAgEGMA0GCSqGSIb3
+DQEBBQUAA4IBAQCFDF2O5G9RaEIFoN27TyclhAO992T9Ldcw46QQF+vaKSm2eT92
+9hkTI7gQCvlYpNRhcL0EYWoSihfVCr3FvDB81ukMJY2GQE/szKN+OMY3EU/t3Wgx
+jkzSswF07r51XgdIGn9w/xZchMB5hbgF/X++ZRGjD8ACtPhSNzkE1akxehi/oCr0
+Epn3o0WC4zxe9Z2etciefC7IpJ5OCBRLbf1wbWsaY71k5h+3zvDyny67G7fyUIhz
+ksLi4xaNmjICq44Y3ekQEe5+NauQrz4wlHrQMz2nZQ/1/I6eYs9HRCwBXbsdtTLS
+R9I4LtD+gdwyah617jzV/OeBHRnDJELqYzmp
+-----END CERTIFICATE-----
 ";
     }
 }

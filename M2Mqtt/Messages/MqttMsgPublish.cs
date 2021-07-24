@@ -417,7 +417,10 @@ namespace nanoFramework.M2Mqtt.Messages
                             index += length;
                             break;
                         case MqttProperty.UserProperty:
-                            msg.UserProperties.Add(EncodeDecodeHelper.GetUTF8FromBuffer(buffer, ref index));
+                            // UTF8 key value encoding, so 2 strings in a raw
+                            string key = EncodeDecodeHelper.GetUTF8FromBuffer(buffer, ref index);
+                            string value = EncodeDecodeHelper.GetUTF8FromBuffer(buffer, ref index);
+                            msg.UserProperties.Add(new UserProperty(key, value));
                             break;
                         case MqttProperty.SubscriptionIdentifier:
                             msg.SubscriptionIdentifier = EncodeDecodeHelper.DecodeVariableByte(buffer, ref index);

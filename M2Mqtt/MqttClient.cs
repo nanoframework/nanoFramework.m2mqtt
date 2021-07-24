@@ -242,11 +242,14 @@ namespace nanoFramework.M2Mqtt
         public uint MaximumPacketSize { get; set; }
 
         /// <summary>
+        /// Set to true if you have an authentication flow, v5.0 only
+        /// </summary>
+        public bool IsAuthenticationFlow { get; set; } = false;
+
+        /// <summary>
         /// MQTT client settings
         /// </summary>
         public MqttSettings Settings => _settings;
-
-        //V5.0 Only properties
 
 
         /// <summary>
@@ -448,49 +451,53 @@ namespace nanoFramework.M2Mqtt
             MqttMsgConnack connack;
             // In v5 case the authentication method is not empty, we will wait for that AUTH message
             // The client **must** subscribe to the Authentication event and mange this.
-            if ((ProtocolVersion == MqttProtocolVersion.Version_5) && (!string.IsNullOrEmpty(AuthenticationMethod)))
+            if (IsAuthenticationFlow)
             {
                 Send(connect);
-                return MqttReasonCode.Success;
+                connack = new MqttMsgConnack();
+                connack.ReturnCode = MqttReasonCode.Success;
             }
             else
             {
                 connack = (MqttMsgConnack)SendReceive(connect);
+            }
+            // if connection accepted, start keep alive timer and 
+            if (connack.ReturnCode == MqttReasonCode.Success)
+            {
+                // set all client properties
+                ClientId = clientId;
+                CleanSession = cleanSession;
+                WillFlag = willFlag;
+                WillTopic = willTopic;
+                WillMessage = willMessage;
+                WillQosLevel = willQosLevel;
 
-                // if connection accepted, start keep alive timer and 
-                if (connack.ReturnCode == MqttReasonCode.Success)
+                _keepAlivePeriod = keepAlivePeriod * 1000; // convert in ms
+
+                // restore previous session
+                RestoreSession();
+
+                // keep alive period equals zero means turning off keep alive mechanism
+                if (_keepAlivePeriod != 0)
                 {
-                    // set all client properties
-                    ClientId = clientId;
-                    CleanSession = cleanSession;
-                    WillFlag = willFlag;
-                    WillTopic = willTopic;
-                    WillMessage = willMessage;
-                    WillQosLevel = willQosLevel;
-
-                    _keepAlivePeriod = keepAlivePeriod * 1000; // convert in ms
-
-                    // restore previous session
-                    RestoreSession();
-
-                    // keep alive period equals zero means turning off keep alive mechanism
-                    if (_keepAlivePeriod != 0)
-                    {
-                        // start thread for sending keep alive message to the broker
-                        Fx.StartThread(KeepAliveThread);
-                    }
-
-                    // start thread for raising received message event from broker
-                    Fx.StartThread(DispatchEventThread);
-
-                    // start thread for handling inflight messages queue to broker asynchronously (publish and acknowledge)
-                    Fx.StartThread(ProcessInflightThread);
-
-                    IsConnected = true;
+                    // start thread for sending keep alive message to the broker
+                    Fx.StartThread(KeepAliveThread);
                 }
 
-                return connack.ReturnCode;
+                // start thread for raising received message event from broker
+                Fx.StartThread(DispatchEventThread);
+
+                // start thread for handling inflight messages queue to broker asynchronously (publish and acknowledge)
+                Fx.StartThread(ProcessInflightThread);
+
+                if (!IsAuthenticationFlow)
+                {
+                    IsConnected = true;
+                }
             }
+
+            return connack.ReturnCode;
+
         }
 
         /// <summary>
@@ -1099,7 +1106,7 @@ namespace nanoFramework.M2Mqtt
         {
             int readBytes = 0;
             byte[] fixedHeaderFirstByte = new byte[1];
-            MqttMessageType msgType;
+            MqttMessageType msgType = MqttMessageType.Connect;
 
             while (_isRunning)
             {
@@ -1112,6 +1119,9 @@ namespace nanoFramework.M2Mqtt
                     {
                         // extract message type from received byte
                         msgType = (MqttMessageType)((fixedHeaderFirstByte[0] & MqttMsgBase.MSG_TYPE_MASK) >> MqttMsgBase.MSG_TYPE_OFFSET);
+#if DEBUG
+                        Debug.WriteLine($"RECV msgtype: {msgType}");
+#endif   
 
                         switch (msgType)
                         {
@@ -1123,10 +1133,19 @@ namespace nanoFramework.M2Mqtt
                             case MqttMessageType.ConnectAck:
 
                                 _msgReceived = MqttMsgConnack.Parse(fixedHeaderFirstByte[0], ProtocolVersion, _channel);
+                                var connack = (MqttMsgConnack)_msgReceived;
+                                // In this case we're not following the normal behavior as there can be authentication in the mean time.
+                                if ((connack.ReturnCode == MqttReasonCode.Success) && IsAuthenticationFlow)
+                                {
+                                    // restore previous session
+                                    RestoreSession();
+
+                                    IsConnected = true;
+                                }
 #if DEBUG
                                 Debug.WriteLine($"RECV {_msgReceived}");
 #endif                                
-                                OnMqttMsgConnack((MqttMsgConnack)_msgReceived);
+                                OnMqttMsgConnack(connack);
                                 _syncEndReceiving.Set();
                                 break;
 
@@ -1249,7 +1268,17 @@ namespace nanoFramework.M2Mqtt
 
                             // DISCONNECT message received
                             case MqttMessageType.Disconnect:
-                                throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
+                                //throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
+                                // enqueue DISCONNECT message received (for QoS Level 1) into the internal queue
+                                MqttMsgDisconnect disconnect = MqttMsgDisconnect.Parse(fixedHeaderFirstByte[0], ProtocolVersion, _channel);
+#if DEBUG
+                                Debug.WriteLine($"RECV {disconnect}");
+#endif
+
+                                // enqueue DISCONNECT message into the internal queue
+                                EnqueueInternal(disconnect);
+
+                                break;
 
                             case MqttMessageType.Authentication:
                                 MqttMsgAuthentication authentication = MqttMsgAuthentication.Parse(fixedHeaderFirstByte[0], ProtocolVersion, _channel);
@@ -1274,7 +1303,7 @@ namespace nanoFramework.M2Mqtt
                 catch (Exception e)
                 {
 #if DEBUG
-                    Debug.WriteLine($"Exception occurred: {e}");
+                    Debug.WriteLine($"Exception occurred: {e}, msgtype: {msgType}");
 #endif
                     _exReceiving = new MqttCommunicationException(e);
 
@@ -1436,8 +1465,8 @@ namespace nanoFramework.M2Mqtt
                                 // DISCONNECT message received from client
                                 case MqttMessageType.Disconnect:
                                     throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
-                                
-                                    // AUTH message received
+
+                                // AUTH message received
                                 case MqttMessageType.Authentication:
                                     OnMqttMsgAuthentication((MqttMsgAuthentication)msg);
                                     break;

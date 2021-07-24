@@ -77,23 +77,18 @@ namespace MessageUnitTests
             connack.SharedSubscriptionAvailable = true;
             connack.SubscriptionIdentifiersAvailable = true;
             connack.TopicAliasMaximum = 148;
-            connack.UserProperties.Add("One Property");
-            connack.UserProperties.Add("Two Properties");
+            connack.UserProperties.Add(new UserProperty("One", "Property"));
+            connack.UserProperties.Add(new UserProperty("Two", "Properties"));
             connack.WildcardSubscriptionAvailable = true;
-            byte[] encodedCorrect = new byte[] { 32,122,1,138,119,17,0,0,9,164,33,0,89,36,1,37,1,39,0,0,17,215,18,0,6,84,97,103,97,
-                100,97,34,0,148,31,0,4,110,111,110,101,38,0,12,79,110,101,32,80,114,111,112,101,114,
-                116,121,38,0,14,84,119,111,32,80,114,111,112,101,114,116,105,101,115,40,1,41,1,42,
+            byte[] encodedCorrect = new byte[] { 32,124,1,138,121,17,0,0,9,164,33,0,89,36,1,37,1,39,0,0,17,215,18,0,6,84,97,103,97,
+                100,97,34,0,148,31,0,4,110,111,110,101,38,0,3,79,110,101,0,8,80,114,111,112,101,114,
+                116,121,38,0,3,84,119,111,0,10,80,114,111,112,101,114,116,105,101,115,40,1,41,1,42,
                 1,19,5,77,26,0,11,105,110,102,114,111,109,97,116,105,111,110,28,0,9,114,101,102,101,
                 114,101,110,99,101,21,0,6,109,101,116,104,111,100,22,0,4,1,2,3,4 };
             // Act
             byte[] encoded = connack.GetBytes(MqttProtocolVersion.Version_5);
+            Helpers.DumpBuffer(encoded);
             // Assert
-            for (int i = 0; i < encoded.Length; i++)
-            {
-                Debug.Write($"{encoded[i]},");
-            }
-
-            Debug.WriteLine("");
             Assert.Equal(encodedCorrect, encoded);
         }
 
@@ -101,9 +96,9 @@ namespace MessageUnitTests
         public void ConnackAdvanceDecodeTestv5()
         {
             //Arrange
-            byte[] encodedCorrect = new byte[] { 122,1,138,119,17,0,0,9,164,33,0,89,36,1,37,1,39,0,0,17,215,18,0,6,84,97,103,97,
-                100,97,34,0,148,31,0,4,110,111,110,101,38,0,12,79,110,101,32,80,114,111,112,101,114,
-                116,121,38,0,14,84,119,111,32,80,114,111,112,101,114,116,105,101,115,40,1,41,1,42,
+            byte[] encodedCorrect = new byte[] { 124,1,138,121,17,0,0,9,164,33,0,89,36,1,37,1,39,0,0,17,215,18,0,6,84,97,103,97,
+                100,97,34,0,148,31,0,4,110,111,110,101,38,0,3,79,110,101,0,8,80,114,111,112,101,114,
+                116,121,38,0,3,84,119,111,0,10,80,114,111,112,101,114,116,105,101,115,40,1,41,1,42,
                 1,19,5,77,26,0,11,105,110,102,114,111,109,97,116,105,111,110,28,0,9,114,101,102,101,
                 114,101,110,99,101,21,0,6,109,101,116,104,111,100,22,0,4,1,2,3,4 };
             MokChannel mokChannel = new MokChannel(encodedCorrect);
@@ -128,8 +123,12 @@ namespace MessageUnitTests
             Assert.Equal(connack.SubscriptionIdentifiersAvailable, true);
             Assert.Equal(connack.TopicAliasMaximum, (ushort)148);
             Assert.Equal(connack.UserProperties.Count, 2);
-            Assert.Equal((string)connack.UserProperties[0], "One Property");
-            Assert.Equal((string)connack.UserProperties[1], "Two Properties");
+            var prop = new UserProperty("One", "Property");
+            Assert.Equal(((UserProperty)connack.UserProperties[0]).Name, prop.Name);
+            Assert.Equal(((UserProperty)connack.UserProperties[0]).Value, prop.Value);
+            prop = new UserProperty("Two", "Properties");
+            Assert.Equal(((UserProperty)connack.UserProperties[1]).Name, prop.Name);
+            Assert.Equal(((UserProperty)connack.UserProperties[1]).Value, prop.Value);
             Assert.Equal(connack.WildcardSubscriptionAvailable, true);
         }
 

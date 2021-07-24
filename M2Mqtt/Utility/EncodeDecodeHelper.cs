@@ -1,6 +1,7 @@
 ﻿using nanoFramework.M2Mqtt.Messages;
 using System;
 using System.Collections;
+using System.Diagnostics;
 using System.Text;
 
 namespace nanoFramework.M2Mqtt.Utility
@@ -40,23 +41,47 @@ namespace nanoFramework.M2Mqtt.Utility
         {
             ArrayList userProps = new ArrayList();
             int propSize = 0;
-            foreach (string prop in userPropers)
+            foreach (UserProperty prop in userPropers)
             {
-                byte[] propByteArray = Encoding.UTF8.GetBytes(prop);
-                propSize += propByteArray.Length;
-                userProps.Add(propByteArray);
+                if (!string.IsNullOrEmpty(prop.Name))
+                {
+                    byte[] key = Encoding.UTF8.GetBytes(prop.Name);
+                    propSize += key.Length;
+                    userProps.Add(key);
+                }
+                else
+                {
+                    userProps.Add(new byte[0]);
+                }
+
+                if (!string.IsNullOrEmpty(prop.Value))
+                {
+                    byte[] value = Encoding.UTF8.GetBytes(prop.Value);
+                    propSize += value.Length;
+                    userProps.Add(value);
+                }
+                else
+                {
+                    userProps.Add(new byte[0]);
+                }
             }
 
-            int fullSize = userProps.Count * 3 + propSize;
+            int fullSize = userPropers.Count * 5 + propSize;
             byte[] userProperties = new byte[fullSize];
             propSize = 0;
-            foreach (byte[] prop in userProps)
+            for (int i = 0; i < userProps.Count / 2; i++)
             {
+                byte[] key = (byte[])userProps[i * 2];
+                byte[] value = (byte[])userProps[i * 2 + 1];
                 userProperties[propSize++] = (byte)MqttProperty.UserProperty;
-                userProperties[propSize++] = (byte)((prop.Length & 0xFF00) << 8);
-                userProperties[propSize++] = (byte)(prop.Length & 0xFF);
-                Array.Copy(prop, 0, userProperties, propSize, prop.Length);
-                propSize += prop.Length;
+                userProperties[propSize++] = (byte)((key.Length & 0xFF00) << 8);
+                userProperties[propSize++] = (byte)(key.Length & 0xFF);
+                Array.Copy(key, 0, userProperties, propSize, key.Length);
+                propSize += key.Length;
+                userProperties[propSize++] = (byte)((value.Length & 0xFF00) << 8);
+                userProperties[propSize++] = (byte)(value.Length & 0xFF);
+                Array.Copy(value, 0, userProperties, propSize, value.Length);
+                propSize += value.Length;
             }
 
             return userProperties;

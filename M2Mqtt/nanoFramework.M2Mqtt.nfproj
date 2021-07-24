@@ -36,6 +36,7 @@
     <Compile Include="Messages\MqttQoSLevel.cs" />
     <Compile Include="Messages\MqttReasonCode.cs" />
     <Compile Include="Messages\MqttRetainHandeling.cs" />
+    <Compile Include="Messages\UserProperty.cs" />
     <Compile Include="nanoFramework\Environment.cs" />
     <Compile Include="Exceptions\MqttClientException.cs" />
     <Compile Include="Exceptions\MqttCommunicationException.cs" />

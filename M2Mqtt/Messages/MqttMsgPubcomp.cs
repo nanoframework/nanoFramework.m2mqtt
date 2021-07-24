@@ -210,8 +210,10 @@ namespace nanoFramework.M2Mqtt.Messages
                             msg.Reason = EncodeDecodeHelper.GetUTF8FromBuffer(buffer, ref index);
                             break;
                         case MqttProperty.UserProperty:
-                            // UTF8 and can have multiple ones
-                            msg.UserProperties.Add(EncodeDecodeHelper.GetUTF8FromBuffer(buffer, ref index));
+                            // UTF8 key value encoding, so 2 strings in a raw
+                            string key = EncodeDecodeHelper.GetUTF8FromBuffer(buffer, ref index);
+                            string value = EncodeDecodeHelper.GetUTF8FromBuffer(buffer, ref index);
+                            msg.UserProperties.Add(new UserProperty(key, value));
                             break;
                         default:
                             // non supported property

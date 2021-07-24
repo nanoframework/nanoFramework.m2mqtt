@@ -79,15 +79,16 @@ namespace MessageUnitTests
         {
             // Arrange
             MqttMsgConnect connect = new(ClientID, UserName, Password, true, MqttQoSLevel.ExactlyOnce, true, WillTopic, WillMessage, true, KeepAlivePeriod, MqttProtocolVersion.Version_5);
-            byte[] correctEncoded = new byte[] {16,113,0,4,77,81,84,84,5,246,4,210,32,38,0,12,79,110,101,32,112,114,111,112,101,114,
-                116,121,38,0,14,84,119,111,32,112,114,111,112,101,114,116,105,101,115,0,8,99,108,
+            byte[] correctEncoded = new byte[] {16,115,0,4,77,81,84,84,5,246,4,210,34,38,0,3,79,110,101,0,8,80,114,111,112,101,114,
+                116,121,38,0,3,84,119,111,0,10,80,114,111,112,101,114,116,105,101,115,0,8,99,108,
                 105,101,110,116,73,68,0,10,119,105,108,108,32,116,111,112,105,99,0,12,119,105,108,
                 108,32,109,101,115,115,97,103,101,0,9,85,115,101,114,32,78,97,109,101,0,21,65,32,
                 116,101,120,116,32,112,97,115,115,119,111,114,100,32,36,36,39,47,37};
-            connect.UserProperties.Add("One property");
-            connect.UserProperties.Add("Two properties");
+            connect.UserProperties.Add(new UserProperty("One", "Property"));
+            connect.UserProperties.Add(new UserProperty("Two", "Properties"));
             // Act
             byte[] encoded = connect.GetBytes(connect.ProtocolVersion);
+            Helpers.DumpBuffer(encoded);
             // Assert
             Assert.Equal(correctEncoded.Length, encoded.Length);
             Assert.Equal(correctEncoded, encoded);
@@ -97,8 +98,8 @@ namespace MessageUnitTests
         public void ConnectUserPropDecodeTestv5()
         {
             // Arrange
-            byte[] correctEncoded = new byte[] {113,0,4,77,81,84,84,5,246,4,210,32,38,0,12,79,110,101,32,112,114,111,112,101,114,
-                116,121,38,0,14,84,119,111,32,112,114,111,112,101,114,116,105,101,115,0,8,99,108,
+            byte[] correctEncoded = new byte[] {115,0,4,77,81,84,84,5,246,4,210,34,38,0,3,79,110,101,0,8,80,114,111,112,101,114,
+                116,121,38,0,3,84,119,111,0,10,80,114,111,112,101,114,116,105,101,115,0,8,99,108,
                 105,101,110,116,73,68,0,10,119,105,108,108,32,116,111,112,105,99,0,12,119,105,108,
                 108,32,109,101,115,115,97,103,101,0,9,85,115,101,114,32,78,97,109,101,0,21,65,32,
                 116,101,120,116,32,112,97,115,115,119,111,114,100,32,36,36,39,47,37};
@@ -115,8 +116,12 @@ namespace MessageUnitTests
             Assert.Equal(KeepAlivePeriod, connect.KeepAlivePeriod);
             Assert.Equal(true, connect.CleanSession);
             Assert.Equal(2, connect.UserProperties.Count);
-            Assert.Equal("One property", (string)connect.UserProperties[0]);
-            Assert.Equal("Two properties", (string)connect.UserProperties[1]);
+            var prop = new UserProperty("One", "Property");
+            Assert.Equal(((UserProperty)connect.UserProperties[0]).Name, prop.Name);
+            Assert.Equal(((UserProperty)connect.UserProperties[0]).Value, prop.Value);
+            prop = new UserProperty("Two", "Properties");
+            Assert.Equal(((UserProperty)connect.UserProperties[1]).Name, prop.Name);
+            Assert.Equal(((UserProperty)connect.UserProperties[1]).Value, prop.Value);
         }
 
         [TestMethod]

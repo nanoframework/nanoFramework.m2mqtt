@@ -41,17 +41,18 @@ namespace MessageUnitTests
         public void PubrelAdvancedEncodeTestv5()
         {
             // Arrange
-            byte[] encodedCorrect = new byte[] { 98,51,0,42,151,47,31,0,26,89,111,117,32,104,97,118,101,32,101,120,99,101,101,100,
-                32,121,111,117,114,32,113,117,111,116,97,38,0,6,80,114,111,112,32,49,38,0,6,80,114,
-                111,112,32,50 };
+            byte[] encodedCorrect = new byte[] { 98,53,0,42,151,49,31,0,26,89,111,117,32,104,97,118,101,32,101,120,99,101,101,100,
+                32,121,111,117,114,32,113,117,111,116,97,38,0,4,80,114,111,112,0,1,49,38,0,4,80,114,
+                111,112,0,1,50 };
             MqttMsgPubrel pubrel = new();
             pubrel.MessageId = 42;
             pubrel.ReasonCode = MqttReasonCode.QuotaExceeded;
             pubrel.Reason = "You have exceed your quota";
-            pubrel.UserProperties.Add("Prop 1");
-            pubrel.UserProperties.Add("Prop 2");
+            pubrel.UserProperties.Add(new UserProperty("Prop", "1"));
+            pubrel.UserProperties.Add(new UserProperty("Prop", "2"));
             // Act
             byte[] encoded = pubrel.GetBytes(MqttProtocolVersion.Version_5);
+            Helpers.DumpBuffer(encoded);
             // Assert
             Assert.Equal(encodedCorrect, encoded);
         }
@@ -67,8 +68,8 @@ namespace MessageUnitTests
             // This should not be send at all as exceeding the maximum packet size
             pubrel.ReasonCode = MqttReasonCode.QuotaExceeded;
             pubrel.Reason = "You have exceed your quota";
-            pubrel.UserProperties.Add("Prop 1");
-            pubrel.UserProperties.Add("Prop 2");
+            pubrel.UserProperties.Add(new UserProperty("Prop", "1"));
+            pubrel.UserProperties.Add(new UserProperty("Prop", "2"));
             // Act
             byte[] encoded = pubrel.GetBytes(MqttProtocolVersion.Version_5);
             // Assert
@@ -104,9 +105,9 @@ namespace MessageUnitTests
         public void PubrelAdvanceDecodeTestv5()
         {
             // Arrange
-            byte[] encodedCorrect = new byte[] { 51,0,42,151,47,31,0,26,89,111,117,32,104,97,118,101,32,101,120,99,101,101,100,
-                32,121,111,117,114,32,113,117,111,116,97,38,0,6,80,114,111,112,32,49,38,0,6,80,114,
-                111,112,32,50 };
+            byte[] encodedCorrect = new byte[] { 53,0,42,151,49,31,0,26,89,111,117,32,104,97,118,101,32,101,120,99,101,101,100,
+                32,121,111,117,114,32,113,117,111,116,97,38,0,4,80,114,111,112,0,1,49,38,0,4,80,114,
+                111,112,0,1,50 };
             MokChannel mokChannel = new(encodedCorrect);
             // Act
             MqttMsgPubrel pubrel = MqttMsgPubrel.Parse(98, MqttProtocolVersion.Version_5, mokChannel);
@@ -115,8 +116,12 @@ namespace MessageUnitTests
             Assert.Equal((byte)pubrel.ReasonCode, (byte)MqttReasonCode.QuotaExceeded);
             Assert.Equal(pubrel.Reason, "You have exceed your quota");
             Assert.Equal(pubrel.UserProperties.Count, 2);
-            Assert.Equal((string)pubrel.UserProperties[0], "Prop 1");
-            Assert.Equal((string)pubrel.UserProperties[1], "Prop 2");
+            var prop = new UserProperty("Prop", "1");
+            Assert.Equal(((UserProperty)pubrel.UserProperties[0]).Name, prop.Name);
+            Assert.Equal(((UserProperty)pubrel.UserProperties[0]).Value, prop.Value);
+            prop = new UserProperty("Prop", "2");
+            Assert.Equal(((UserProperty)pubrel.UserProperties[1]).Name, prop.Name);
+            Assert.Equal(((UserProperty)pubrel.UserProperties[1]).Value, prop.Value);
         }
     }
 }
