@@ -19,9 +19,9 @@ namespace TestAppv5._0
         private const string Ssid = "ssid";
         private const string Paswword = "pswd";
 
-        private const string IoTHub = "youriot.azure-devices.net";
+        private const string IoTHub = "youriothub.azure-devices.net";
         private const string DeviceID = "nanoTestDevice";
-        private const string Sas = "atokenbase64encoded";
+        private const string Sas = "asaskeybase64encoded";
 
         public static void Main()
         {
@@ -35,9 +35,9 @@ namespace TestAppv5._0
             Debug.WriteLine("Hello from nanoFramework MQTT 5.0 real v5.0 server test!");
             // You can change the server to test
             // Mosquitto supports MQTT5.0 but send some of the messages as v3.1.1 (forgetting the specific MQTT v5.0 property size)
-            //MqttClient mqtt = new MqttClient("test.mosquitto.org", 8883, true, new X509Certificate(CertMosquitto), null, MqttSslProtocols.TLSv1_2);
+            // MqttClient mqtt = new MqttClient("test.mosquitto.org", 8883, true, new X509Certificate(CertMosquitto), null, MqttSslProtocols.TLSv1_2);
             // EMQX fully supports v5.0 and sends properly the v.5 property size
-            //MqttClient mqtt = new MqttClient("broker.emqx.io", 8883, true, new X509Certificate(CertEMQX), null, MqttSslProtocols.TLSv1_2);
+            // MqttClient mqtt = new MqttClient("broker.emqx.io", 8883, true, new X509Certificate(CertEMQX), null, MqttSslProtocols.TLSv1_2);
             // Azure IoT Edge
             MqttClient mqtt = new MqttClient(IoTHub, 8883, true, new X509Certificate(CertAzure), null, MqttSslProtocols.TLSv1_2);
 
@@ -48,6 +48,7 @@ namespace TestAppv5._0
             mqtt.MqttMsgPublishReceived += MqttMqttMsgPublishReceived;
             mqtt.MqttMsgSubscribed += MqttMqttMsgSubscribed;
             mqtt.MqttMsgUnsubscribed += MqttMqttMsgUnsubscribed;
+            mqtt.ConnectionClosedRequest += MqttConnectionClosedRequest;
 
             mqtt.RequestResponseInformation = true;
             // Seems like no need of password or user name for Mosquitto or EMQX
@@ -101,8 +102,9 @@ namespace TestAppv5._0
 
             // Uncomment to get flooded with topics
             // mqtt.Subscribe(new string[] { "$SYS/#" }, new MqttQoSLevel[] { MqttQoSLevel.AtLeastOnce });
-            //mqtt.Subscribe(new string[] { "nanoTestDevice/#" }, new MqttQoSLevel[] { MqttQoSLevel.AtLeastOnce });
-            mqtt.Subscribe(new string[] { "$iothub/commands" }, new MqttQoSLevel[] { MqttQoSLevel.AtLeastOnce });
+            // mqtt.Subscribe(new string[] { "nanoTestDevice/#" }, new MqttQoSLevel[] { MqttQoSLevel.AtLeastOnce });
+            // For Azure IoT, if you have a subscription that allow cloud to device, you can subscribe to it:
+            // mqtt.Subscribe(new string[] { "$iothub/commands" }, new MqttQoSLevel[] { MqttQoSLevel.AtLeastOnce });
 
             //mqtt.UserProperties.Add(new UserProperty("my beautiful", "property"));
             for (int i = 0; (i < 100) && mqtt.IsConnected; i++)
@@ -121,6 +123,20 @@ namespace TestAppv5._0
             }
 
             Thread.Sleep(Timeout.Infinite);
+        }
+
+        private static void MqttConnectionClosedRequest(object sender, ConnectionClosedRequestEventArgs e)
+        {
+            Debug.WriteLine("Disconnection requested by server");
+            Debug.WriteLine($"  Return code: {e.Message.Reason}");
+            Debug.WriteLine($"  Return code: {e.Message.ResonCode}");
+            Debug.WriteLine($"  Return code: {e.Message.ServerReference}");
+            Debug.WriteLine($"  Num user props: {e.Message.UserProperties.Count}");
+            foreach (UserProperty prop in e.Message.UserProperties)
+            {
+                Debug.WriteLine($"    Key  : {prop.Name}");
+                Debug.WriteLine($"    Value: {prop.Value}");
+            }
         }
 
         private static void MqttMqttMsgUnsubscribed(object sender, MqttMsgUnsubscribedEventArgs e)

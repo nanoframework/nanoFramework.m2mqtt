@@ -6,22 +6,22 @@ using System;
 namespace nanoFramework.M2Mqtt.Messages
 {
     /// <summary>
-    /// Event Args class for CONNECT message received from client
+    /// Event Args class for DISCONNECT message received from server
     /// </summary>
-    public class ConnectionOpenedEventArgs : EventArgs
+    public class ConnectionClosedRequestEventArgs : EventArgs
     {
         /// <summary>
         /// Message received from client
         /// </summary>
-        public MqttMsgConnack Message { get; private set; }
+        public MqttMsgDisconnect Message { get; private set; }
 
         /// <summary>
         /// Constructor
         /// </summary>
-        /// <param name="connact">CONNECT message received from client</param>
-        public ConnectionOpenedEventArgs(MqttMsgConnack connact)
+        /// <param name="disconnect">DISCONNECT message received from client</param>
+        public ConnectionClosedRequestEventArgs(MqttMsgDisconnect disconnect)
         {
-            Message = connact;
+            Message = disconnect;
         }
     }
 }

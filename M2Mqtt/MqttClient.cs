@@ -120,6 +120,11 @@ namespace nanoFramework.M2Mqtt
         public delegate void ConnectionClosedEventHandler(object sender, EventArgs e);
 
         /// <summary>
+        /// Delegate that defines event handler for server disconnection request
+        /// </summary>
+        public delegate void ConnectionClosedRequestEventHandler(object sender, ConnectionClosedRequestEventArgs e);
+
+        /// <summary>
         /// The event for PUBLISH message received
         /// </summary>
         public event MqttMsgPublishEventHandler MqttMsgPublishReceived;
@@ -145,6 +150,11 @@ namespace nanoFramework.M2Mqtt
         /// The event for peer/client disconnection
         /// </summary>
         public event ConnectionClosedEventHandler ConnectionClosed;
+
+        /// <summary>
+        /// The event for peer/client disconnection
+        /// </summary>
+        public event ConnectionClosedRequestEventHandler ConnectionClosedRequest;
 
         /// <summary>
         /// The event for peer/client disconnection
@@ -1276,8 +1286,8 @@ namespace nanoFramework.M2Mqtt
 #endif
 
                                 // enqueue DISCONNECT message into the internal queue
+                                ConnectionClosedRequest?.Invoke(this, new ConnectionClosedRequestEventArgs(disconnect));
                                 EnqueueInternal(disconnect);
-
                                 break;
 
                             case MqttMessageType.Authentication:
@@ -1464,7 +1474,8 @@ namespace nanoFramework.M2Mqtt
 
                                 // DISCONNECT message received from client
                                 case MqttMessageType.Disconnect:
-                                    throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
+                                    OnConnectionClosed();
+                                    break; ;
 
                                 // AUTH message received
                                 case MqttMessageType.Authentication:
