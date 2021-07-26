@@ -39,7 +39,7 @@ namespace nanoFramework.M2Mqtt.Messages
         public MqttReasonCode[] ReasonCodes { get; set; }
 
         /// <summary>
-        /// The REason as a string, v5.0 only
+        /// The Reason as a string, v5.0 only
         /// </summary>
         public string Reason { get; set; }
 

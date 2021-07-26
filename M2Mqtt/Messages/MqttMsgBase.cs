@@ -203,12 +203,10 @@ namespace nanoFramework.M2Mqtt.Messages
             byte[] binary = value as byte[];
             if (binary != null)
             {
-                string hexChars = "0123456789ABCDEF";
                 StringBuilder sb = new StringBuilder(binary.Length * 2);
                 for (int i = 0; i < binary.Length; ++i)
                 {
-                    sb.Append(hexChars[binary[i] >> 4]);
-                    sb.Append(hexChars[binary[i] & 0x0F]);
+                    sb.Append(binary[i].ToString("X2"));
                 }
 
                 return sb.ToString();
@@ -217,12 +215,10 @@ namespace nanoFramework.M2Mqtt.Messages
             MqttQoSLevel[] qosLevel = value as MqttQoSLevel[];
             if (qosLevel != null)
             {
-                string hexChars = "0123456789ABCDEF";
                 StringBuilder sb = new StringBuilder(qosLevel.Length * 2);
                 for (int i = 0; i < qosLevel.Length; ++i)
                 {
-                    sb.Append(hexChars[(byte)qosLevel[i] >> 4]);
-                    sb.Append(hexChars[(byte)qosLevel[i] & 0x0F]);
+                    sb.Append(((byte)qosLevel[i]).ToString("X2"));
                 }
 
                 return sb.ToString();

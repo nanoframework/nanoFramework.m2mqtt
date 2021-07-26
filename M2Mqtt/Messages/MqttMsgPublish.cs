@@ -43,8 +43,11 @@ namespace nanoFramework.M2Mqtt.Messages
         public bool IsPayloadUTF8 { get; set; }
 
         /// <summary>
-        /// Message Expiry Interval. If the server did not managed to process it on time, the message must be deleted, v5.0 only
+        /// Message Expiry Interval. If the server did not managed to process it on time, the message must be deleted.
+        /// Value is the lifetime of the Will Message in seconds and is sent as the Publication Expiry Interval when the Server publishes the Will Message.
+        /// v5.0 only
         /// </summary>
+        /// <remarks>The value 0 is the default one, it means, it is not present</remarks>
         public uint MessageExpiryInterval { get; set; }
 
         /// <summary>

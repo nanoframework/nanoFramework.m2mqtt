@@ -11,7 +11,7 @@ namespace MessageUnitTests
         {
             for (int i = 0; i < buffer.Length; i++)
             {
-                Debug.Write($"{buffer[i]},");
+                Debug.Write($"0x{buffer[i].ToString("X2")}, ");
             }
 
             Debug.WriteLine("");
