@@ -43,14 +43,7 @@ namespace nanoFramework.M2Mqtt.Messages
             int index = 0;
 
             // first fixed header byte
-            if ((protocolVersion == MqttProtocolVersion.Version_3_1_1) || (protocolVersion == MqttProtocolVersion.Version_5))
-            {
-                buffer[index++] = ((byte)MqttMessageType.PingRequest << MSG_TYPE_OFFSET) | MQTT_MSG_PINGREQ_FLAG_BITS; // [v.3.1.1]
-            }
-            else
-            {
-                buffer[index++] = (byte)MqttMessageType.PingRequest << MSG_TYPE_OFFSET;
-            }
+            buffer[index++] = (byte)MqttMessageType.PingRequest << MSG_TYPE_OFFSET;
             buffer[index++] = 0x00;
 
             return buffer;

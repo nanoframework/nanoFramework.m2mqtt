@@ -34,6 +34,9 @@ namespace nanoFramework.M2Mqtt.Messages
         /// </summary>
         public MqttReasonCode ReasonCode { get; set; }
 
+        /// <summary>
+        /// Constructor
+        /// </summary>
         public MqttMsgAuthentication()
         {
             Type = MqttMessageType.Authentication;
@@ -124,7 +127,7 @@ namespace nanoFramework.M2Mqtt.Messages
             // allocate buffer for message
             buffer = new byte[fixedHeaderSize + varHeaderSize];
 
-            buffer[index++] = ((byte)MqttMessageType.Authentication << MSG_TYPE_OFFSET) | MQTT_MSG_PUBREC_FLAG_BITS;
+            buffer[index++] = (byte)MqttMessageType.Authentication << MSG_TYPE_OFFSET;
             // encode remaining length
             index = EncodeVariableByte(remainingLength, buffer, index);
             buffer[index++] = (byte)ReasonCode;
@@ -149,7 +152,6 @@ namespace nanoFramework.M2Mqtt.Messages
             if (userProperties != null)
             {
                 Array.Copy(userProperties, 0, buffer, index, userProperties.Length);
-                index += userProperties.Length;
             }
 
             return buffer;

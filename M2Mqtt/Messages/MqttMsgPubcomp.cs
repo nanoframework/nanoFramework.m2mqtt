@@ -120,14 +120,7 @@ namespace nanoFramework.M2Mqtt.Messages
             buffer = new byte[fixedHeaderSize + varHeaderSize + payloadSize];
 
             // first fixed header byte
-            if (protocolVersion == MqttProtocolVersion.Version_3_1_1)
-            {
-                buffer[indexPubcomp++] = ((byte)MqttMessageType.PublishComplete << MSG_TYPE_OFFSET) | MQTT_MSG_PUBCOMP_FLAG_BITS; // [v.3.1.1]
-            }
-            else
-            {
-                buffer[indexPubcomp++] = (byte)MqttMessageType.PublishComplete << MSG_TYPE_OFFSET;
-            }
+            buffer[indexPubcomp++] = (byte)MqttMessageType.PublishComplete << MSG_TYPE_OFFSET;
 
             // encode remaining length
             indexPubcomp = EncodeVariableByte(remainingLength, buffer, indexPubcomp);
@@ -153,7 +146,6 @@ namespace nanoFramework.M2Mqtt.Messages
                 if (userProperties != null)
                 {
                     Array.Copy(userProperties, 0, buffer, indexPubcomp, userProperties.Length);
-                    indexPubcomp += userProperties.Length;
                 }
             }
             return buffer;

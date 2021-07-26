@@ -31,16 +31,11 @@ namespace nanoFramework.M2Mqtt.Messages
     {
         #region Constants...
 
-        private const byte TOPIC_NAME_COMP_RESP_BYTE_OFFSET = 0;
         private const byte TOPIC_NAME_COMP_RESP_BYTE_SIZE = 1;
-        // [v3.1.1] connect acknowledge flags replace "old" topic name compression respone (not used in 3.1)
-        private const byte CONN_ACK_FLAGS_BYTE_OFFSET = 0;
         private const byte CONN_ACK_FLAGS_BYTE_SIZE = 1;
         // [v3.1.1] session present flag
         private const byte SESSION_PRESENT_FLAG_MASK = 0x01;
         private const byte SESSION_PRESENT_FLAG_OFFSET = 0x00;
-        private const byte SESSION_PRESENT_FLAG_SIZE = 0x01;
-        private const byte CONN_RETURN_CODE_BYTE_OFFSET = 1;
         private const byte CONN_RETURN_CODE_BYTE_SIZE = 1;
 
         #endregion
@@ -77,11 +72,6 @@ namespace nanoFramework.M2Mqtt.Messages
         /// True if retain is available, v5.0 only
         /// </summary>
         public bool RetainAvailable { get; set; }
-
-        /// <summary>
-        /// Maximum PacketSize, v5.0 only
-        /// </summary>
-        public uint MaximumPacketSize { get; set; }
 
         /// <summary>
         /// The client ID to use to connect to the server. This must replace the initial Client ID used for the connection, v5.0 only
@@ -424,15 +414,8 @@ namespace nanoFramework.M2Mqtt.Messages
             // allocate buffer for message
             buffer = new byte[fixedHeaderSize + varHeaderSize];
 
-            // first fixed header byte
-            if ((protocolVersion == MqttProtocolVersion.Version_3_1_1) || (protocolVersion == MqttProtocolVersion.Version_5))
-            {
-                buffer[index++] = ((byte)MqttMessageType.ConnectAck << MSG_TYPE_OFFSET) | MQTT_MSG_CONNACK_FLAG_BITS; // [v.3.1.1]
-            }
-            else
-            {
-                buffer[index++] = (byte)MqttMessageType.ConnectAck << MSG_TYPE_OFFSET;
-            }
+            // first fixed header byte            
+            buffer[index++] = (byte)MqttMessageType.ConnectAck << MSG_TYPE_OFFSET;
 
             // encode remaining length
             index = EncodeVariableByte(remainingLength, buffer, index);
@@ -546,7 +529,6 @@ namespace nanoFramework.M2Mqtt.Messages
                 if (authenticationData != null)
                 {
                     Array.Copy(authenticationData, 0, buffer, index, authenticationData.Length);
-                    index += authenticationData.Length;
                 }
             }
 

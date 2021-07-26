@@ -132,7 +132,6 @@ namespace nanoFramework.M2Mqtt.Messages
         {
             int fixedHeaderSize = 0;
             int varHeaderSize = 0;
-            int payloadSize = 0;
             int remainingLength = 0;
             byte[] buffer;
             int index = 0;
@@ -145,15 +144,7 @@ namespace nanoFramework.M2Mqtt.Messages
             if ((protocolVersion == MqttProtocolVersion.Version_3_1_1) || (protocolVersion == MqttProtocolVersion.Version_3_1) || (ResonCode == MqttReasonCode.Success))
             {
                 buffer = new byte[2];
-                if (protocolVersion == MqttProtocolVersion.Version_3_1_1)
-                {
-                    buffer[index++] = ((byte)(MqttMessageType.Disconnect) << MSG_TYPE_OFFSET) | MQTT_MSG_DISCONNECT_FLAG_BITS; // [v.3.1.1]
-                }
-                else
-                {
-                    buffer[index++] = ((byte)(MqttMessageType.Disconnect) << MSG_TYPE_OFFSET);
-                }
-
+                buffer[index++] = ((byte)(MqttMessageType.Disconnect) << MSG_TYPE_OFFSET);
                 // Success
                 buffer[index] = 0x00;
             }
@@ -203,7 +194,7 @@ namespace nanoFramework.M2Mqtt.Messages
 
                 // allocate buffer for message
                 buffer = new byte[fixedHeaderSize + varHeaderSize];
-                buffer[index++] = ((byte)MqttMessageType.Disconnect << MSG_TYPE_OFFSET) | MQTT_MSG_DISCONNECT_FLAG_BITS;
+                buffer[index++] = (byte)MqttMessageType.Disconnect << MSG_TYPE_OFFSET;
                 index = EncodeVariableByte(remainingLength, buffer, index);
                 buffer[index++] = (byte)ResonCode;
                 index = EncodeVariableByte(varHeaderPropSize, buffer, index);

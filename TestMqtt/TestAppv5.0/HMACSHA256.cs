@@ -75,7 +75,7 @@ namespace System.Security.Cryptography
             r |= (((uint)input[start]) << 24);
             r |= (((uint)input[start + 1]) << 16);
             r |= (((uint)input[start + 2]) << 8);
-            r |= (((uint)input[start + 3]));
+            r |= input[start + 3];
             return r;
         }
 
@@ -85,7 +85,7 @@ namespace System.Security.Cryptography
             output[start] = (byte)((input & 0xFF000000) >> 24);
             output[start + 1] = (byte)((input & 0x00FF0000) >> 16);
             output[start + 2] = (byte)((input & 0x0000FF00) >> 8);
-            output[start + 3] = (byte)((input & 0x000000FF));
+            output[start + 3] = (byte)(input & 0x000000FF);
         }
 
         // SHA-224/SHA-256 choice function 
@@ -174,7 +174,7 @@ namespace System.Security.Cryptography
             processed[processed.Length - 4] = (byte)(((input.Length * 8) & 0xFF000000) >> 24);
             processed[processed.Length - 3] = (byte)(((input.Length * 8) & 0x00FF0000) >> 16);
             processed[processed.Length - 2] = (byte)(((input.Length * 8) & 0x0000FF00) >> 8);
-            processed[processed.Length - 1] = (byte)(((input.Length * 8) & 0x000000FF));
+            processed[processed.Length - 1] = (byte)((input.Length * 8) & 0x000000FF);
 
             // Block of 32 bits values used in calculations 
             var wordblock = new uint[64];

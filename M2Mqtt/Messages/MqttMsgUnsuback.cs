@@ -186,14 +186,7 @@ namespace nanoFramework.M2Mqtt.Messages
             buffer = new byte[fixedHeaderSize + varHeaderSize + payloadSize];
 
             // first fixed header byte
-            if ((protocolVersion == MqttProtocolVersion.Version_3_1_1) || (protocolVersion == MqttProtocolVersion.Version_5))
-            {
-                buffer[indexUnback++] = ((byte)MqttMessageType.UnsubscribeAck << MSG_TYPE_OFFSET) | MQTT_MSG_UNSUBACK_FLAG_BITS; // [v.3.1.1]
-            }
-            else
-            {
-                buffer[indexUnback++] = (byte)MqttMessageType.UnsubscribeAck << MSG_TYPE_OFFSET;
-            }
+            buffer[indexUnback++] = (byte)MqttMessageType.UnsubscribeAck << MSG_TYPE_OFFSET;
 
             // encode remaining length
             indexUnback = EncodeVariableByte(remainingLength, buffer, indexUnback);
@@ -219,7 +212,6 @@ namespace nanoFramework.M2Mqtt.Messages
                 if (userProperties != null)
                 {
                     Array.Copy(userProperties, 0, buffer, indexUnback, userProperties.Length);
-                    indexUnback += userProperties.Length;
                 }
             }
 

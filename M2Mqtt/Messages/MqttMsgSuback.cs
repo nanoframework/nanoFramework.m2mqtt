@@ -18,7 +18,6 @@ Contributors:
 using nanoFramework.M2Mqtt.Exceptions;
 using nanoFramework.M2Mqtt.Utility;
 using System;
-using System.Diagnostics;
 using System.Text;
 
 namespace nanoFramework.M2Mqtt.Messages
@@ -222,14 +221,7 @@ namespace nanoFramework.M2Mqtt.Messages
             buffer = new byte[fixedHeaderSize + varHeaderSize + payloadSize];
 
             // first fixed header byte
-            if (protocolVersion == MqttProtocolVersion.Version_3_1_1)
-            {
-                buffer[index++] = ((byte)MqttMessageType.SubscribeAck << MSG_TYPE_OFFSET) | MQTT_MSG_SUBACK_FLAG_BITS; // [v.3.1.1]
-            }
-            else
-            {
-                buffer[index++] = (byte)MqttMessageType.SubscribeAck << MSG_TYPE_OFFSET;
-            }
+            buffer[index++] = (byte)MqttMessageType.SubscribeAck << MSG_TYPE_OFFSET;
 
             // encode remaining length
             index = EncodeVariableByte(remainingLength, buffer, index);

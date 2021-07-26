@@ -300,7 +300,7 @@ namespace nanoFramework.M2Mqtt.Messages
             if (msg.ProtocolVersion == MqttProtocolVersion.Version_5)
             {
                 // size of the properties
-                int propSize = EncodeDecodeHelper.GetPropertySize(buffer, ref index);                
+                int propSize = EncodeDecodeHelper.GetPropertySize(buffer, ref index);
                 propSize += index;
                 MqttProperty prop;
 
@@ -557,7 +557,7 @@ namespace nanoFramework.M2Mqtt.Messages
             buffer = new byte[fixedHeaderSize + varHeaderSize + payloadSize];
 
             // first fixed header byte
-            buffer[index++] = ((byte)MqttMessageType.Connect << MSG_TYPE_OFFSET) | MQTT_MSG_CONNECT_FLAG_BITS; // [v.3.1.1]
+            buffer[index++] = (byte)MqttMessageType.Connect << MSG_TYPE_OFFSET;
 
             // encode remaining length
             index = EncodeVariableByte(remainingLength, buffer, index);

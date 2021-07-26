@@ -157,7 +157,6 @@ namespace nanoFramework.M2Mqtt.Messages
                 if (userProperties != null)
                 {
                     Array.Copy(userProperties, 0, buffer, indexPubrel, userProperties.Length);
-                    indexPubrel += userProperties.Length;
                 }
             }
 

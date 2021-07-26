@@ -1278,7 +1278,6 @@ namespace nanoFramework.M2Mqtt
 
                             // DISCONNECT message received
                             case MqttMessageType.Disconnect:
-                                //throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
                                 // enqueue DISCONNECT message received (for QoS Level 1) into the internal queue
                                 MqttMsgDisconnect disconnect = MqttMsgDisconnect.Parse(fixedHeaderFirstByte[0], ProtocolVersion, _channel);
 #if DEBUG
