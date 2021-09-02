@@ -1,11 +1,11 @@
 ﻿using System;
-using System.Threading;
-using System.Text;
-using nanoFramework.M2Mqtt;
-using nanoFramework.M2Mqtt.Messages;
+using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Security.Cryptography.X509Certificates;
-using System.Diagnostics;
+using System.Text;
+using System.Threading;
+using nanoFramework.M2Mqtt;
+using nanoFramework.M2Mqtt.Messages;
 
 
 namespace Mosquito.TemperatureGauge
@@ -59,7 +59,7 @@ namespace Mosquito.TemperatureGauge
         {
             // generate random value
             Random randomProvider = new Random();
-            var randomTemperature = randomProvider.NextDouble()*10;
+            var randomTemperature = randomProvider.NextDouble() * 10;
 
             // convert to string formatted NN.NN
             var temperatureAsString = randomTemperature.ToString("N2");
