@@ -38,6 +38,9 @@ The M2Mqtt library provides a main class `MqttClient` that represents the MQTT c
 
 After connecting to the broker you can use `Publish()` method to publish a message to a topic and `Subscribe()` method to subscribe to a topic and receive message published on it. The `MqttClient` class is events based so that you receive an event when a message is published to a topic you subscribed to. You can receive event when a message publishing is complete, you have subscribed or unsubscribed to a topic.
 
+For more details, see the comments inside the samples.
+
+
 | Sample | Description | 
 |---|---|
 |[BasicExample.Ethernet](./TestMqtt/BasicExample.Ethernet)|The most basic usage, without authentication or certificates. Ready to run on Ethernet-based boards.|
