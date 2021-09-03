@@ -32,38 +32,31 @@ The binaries are available as a [NuGet package](https://www.nuget.org/packages/n
 
 For all information about MQTT protocol, please visit official web site  http://mqtt.org/. It is recommended to have a good understanding of how MQTT protocol is working to properly use it. The mechanism of Quality of Service is an important one to understand.
 
-## Usage
+### Examples
+
+The M2Mqtt library provides a main class `MqttClient` that represents the MQTT client to connect to a broker. You can connect to the broker providing its IP address or host name and optionally some parameters related to MQTT protocol.
+
+After connecting to the broker you can use `Publish()` method to publish a message to a topic and `Subscribe()` method to subscribe to a topic and receive message published on it. The `MqttClient` class is events based so that you receive an event when a message is published to a topic you subscribed to. You can receive event when a message publishing is complete, you have subscribed or unsubscribed to a topic.
+
+| Sample | Description | 
+|---|---|
+|[BasicExample.Ethernet](./TestMqtt/BasicExample.Ethernet)|The most basic usage, without authentication or certificates. Ready to run on Ethernet-based boards.|
+|[BasicExample.WiFi](./TestMqtt/BasicExample.WiFi)|The most basic usage, without authentication or certificates. Ready to run on WiFi-based boards.|
+|[AdvancedExample.Certificates](./TestMqtt/AdvancedExample.Certificate)|Basic usage, but uses secure connection and certificate-based authorization.|
+|[AdvancedExample.Azure](./TestMqtt/TestAppv5.0)|The most sophisticated example with all the bells and whistles. Uses MQTT v5, secure connection and Azure.|
+
+
+## MQTT v5 Usage
 
 The usage is globally the same whatever version is used. There are some specificities between v3.1.1 and v5.0. The version 5.0 brings more control and additional properties. For convenience, they are all commented with `v5.0 only` in the properties comments. If you're using a v5.0 property with the v3.1 or v3.1.1 protocol, they'll just be ignored.
 
-Here is a basic example of creating a v3.1.1 server and connecting to it:
+For the v5.0, you just need to specify the version before the connection, like this:
 
 ```csharp
-MqttClient mqtt = new MqttClient("test.mosquitto.org", 8883, true, new X509Certificate(CertMosquitto), null, MqttSslProtocols.TLSv1_2);
+MqttClient mqtt = new MqttClient("test.mosquitto.org");
+mqtt.ProtocolVersion = MqttProtocolVersion.Version_5; // <-- Add this line if you want to use v5 features.
 var ret = mqtt.Connect("nanoTestDevice", true);
-if (ret != MqttReasonCode.Success)
-{
-    Debug.WriteLine($"ERROR connecting: {ret}");
-    mqtt.Disconnect();
-    return;
-}
 ```
-
-For the v5.0, you just need to specify the version before the connection:
-
-```csharp
-MqttClient mqtt = new MqttClient("test.mosquitto.org", 8883, true, new X509Certificate(CertMosquitto), null, MqttSslProtocols.TLSv1_2);
-mqtt.ProtocolVersion = MqttProtocolVersion.Version_5;
-var ret = mqtt.Connect("nanoTestDevice", true);
-if (ret != MqttReasonCode.Success)
-{
-    Debug.WriteLine($"ERROR connecting: {ret}");
-    mqtt.Disconnect();
-    return;
-}
-```
-
-Note: in both example, a specific certificate is needed to connect to the Mosquitto server. You will find it in the [sample](./TestMqtt/TestAppv5.0).
 
 ### v5.0 specific Authentication flow
 
@@ -158,54 +151,6 @@ private static void MqttConnectionOpened(object sender, ConnectionOpenedEventArg
 
     Debug.WriteLine($"  Wildcard available: {e.Message.WildcardSubscriptionAvailable}");
 }
-```
-
-### Example
-
-The M2Mqtt library provides a main class `MqttClient` that represents the MQTT client to connect to a broker. You can connect to the broker providing its IP address or host name and optionally some parameters related to MQTT protocol.
-
-After connecting to the broker you can use `Publish()` method to publish a message to a topic and `Subscribe()` method to subscribe to a topic and receive message published on it. The `MqttClient` class is events based so that you receive an event when a message is published to a topic you subscribed to. You can receive event when a message publishing is complete, you have subscribed or unsubscribed to a topic.
-
-Following an example of client subscriber to a topic :
-
-```csharp
-string MQTT_BROKER_ADDRESS = "192.168.1.2";
-// create client instance
-MqttClient client = new MqttClient(IPAddress.Parse(MQTT_BROKER_ADDRESS));
-
-// register to message received
-client.MqttMsgPublishReceived += client_MqttMsgPublishReceived;
-
-string clientId = Guid.NewGuid().ToString();
-client.Connect(clientId);
-
-// subscribe to the topic "/home/temperature" with QoS 2
-client.Subscribe(new string[] { "/home/temperature" }, new MqttQoSLevel[] { MqttMsgBase.ExactlyOnce });
-
-// You can add some code here
-
-static void client_MqttMsgPublishReceived(object sender, MqttMsgPublishEventArgs e)
-{
-// handle message received 
-}
-```
-
-Following an example of client publisher to a topic :
-
-```csharp
-string MQTT_BROKER_ADDRESS = "192.168.1.2";
-// create client instance
-MqttClient client = new MqttClient(IPAddress.Parse(MQTT_BROKER_ADDRESS));
-
-string clientId = Guid.NewGuid().ToString();
-client.Connect(clientId);
-
-string strValue = Convert.ToString(value);
-
-// publish a message on "/home/temperature" topic with QoS 2
-client.Publish("/home/temperature", Encoding.UTF8.GetBytes(strValue), MqttQoSLevel.ExactlyOnce, false);
-
-// More code goes here
 ```
 
 ## Feedback and documentation
