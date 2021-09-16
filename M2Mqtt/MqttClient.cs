@@ -72,6 +72,8 @@ namespace nanoFramework.M2Mqtt
         private Queue _internalQueue;
         // internal queue for dispatching events
         private Queue _eventQueue;
+        // internal table of truth for QoS1 and QoS2
+        private ArrayList _waitingForAnswer;
         // session
         private MqttClientSession _session;
 
@@ -324,6 +326,7 @@ namespace nanoFramework.M2Mqtt
             _receiveEventWaitHandle = new AutoResetEvent(false);
             _eventQueue = new Queue();
             _internalQueue = new Queue();
+            _waitingForAnswer = new ArrayList();
 
             // session
             _session = null;
@@ -553,6 +556,7 @@ namespace nanoFramework.M2Mqtt
             // clear all queues
             _inflightQueue.Clear();
             _internalQueue.Clear();
+            _waitingForAnswer.Clear();
             _eventQueue.Clear();
 
             // close network channel
@@ -655,6 +659,14 @@ namespace nanoFramework.M2Mqtt
                     };
 
             // enqueue message to publish into the inflight queue
+            if (publish.QosLevel != MqttQoSLevel.AtMostOnce)
+            {
+                lock (_waitingForAnswer)
+                {
+                    _waitingForAnswer.Add(publish.MessageId);
+                }
+            }
+
             bool enqueue = EnqueueInflight(publish, MqttMsgFlow.ToPublish);
 
             // message enqueued
@@ -858,7 +870,7 @@ namespace nanoFramework.M2Mqtt
         private MqttMsgBase SendReceive(MqttMsgBase msg, int timeout)
         {
 #if DEBUG
-            Debug.WriteLine($"SEND {msg}");
+            Debug.WriteLine($"SENDRCV {msg}");
 #endif
             return SendReceive(msg.GetBytes(ProtocolVersion), timeout);
         }
@@ -901,7 +913,6 @@ namespace nanoFramework.M2Mqtt
             if ((msg.Type == MqttMessageType.Publish) &&
                 (msg.QosLevel == MqttQoSLevel.ExactlyOnce))
             {
-
                 // if it is a PUBLISH message already received (it is in the inflight queue), the publisher
                 // re-sent it because it didn't received the PUBREC. In this case, we have to re-send PUBREC
 
@@ -968,7 +979,8 @@ namespace nanoFramework.M2Mqtt
                     Message = msg,
                     State = state,
                     Flow = flow,
-                    Attempt = 0
+                    Attempt = 0,
+                    Timestamp = Environment.TickCount
                 };
 
                 lock (_inflightQueue)
@@ -981,7 +993,10 @@ namespace nanoFramework.M2Mqtt
                 }
 
 #if DEBUG
-                Debug.WriteLine($"_internalQueue.Count  {_internalQueue.Count}");
+                lock (_internalQueue)
+                {
+                    Debug.WriteLine($"_internalQueue.Count  {_internalQueue.Count}");
+                }
 #endif
 
                 if (enqueue)
@@ -1036,10 +1051,18 @@ namespace nanoFramework.M2Mqtt
             // enqueue is needed (or not)
             bool enqueue = true;
 
+            lock (_waitingForAnswer)
+            {
+                if (_waitingForAnswer.Contains(msg.MessageId))
+                {
+                    enqueue = false;
+                    _waitingForAnswer.Remove(msg.MessageId);
+                }
+            }
+
             // if it is a PUBREL message (for QoS Level 2)
             if (msg.Type == MqttMessageType.PublishRelease)
             {
-
                 // if it is a PUBREL but the corresponding PUBLISH isn't in the inflight queue,
                 // it means that we processed PUBLISH message and received PUBREL and we sent PUBCOMP
                 // but publisher didn't receive PUBCOMP so it re-sent PUBREL. We need only to re-send PUBCOMP.
@@ -1069,7 +1092,6 @@ namespace nanoFramework.M2Mqtt
             // if it is a PUBCOMP message (for QoS Level 2)
             else if (msg.Type == MqttMessageType.PublishComplete)
             {
-
                 // if it is a PUBCOMP but the corresponding PUBLISH isn't in the inflight queue,
                 // it means that we sent PUBLISH message, sent PUBREL (after receiving PUBREC) and already received PUBCOMP
                 // but publisher didn't receive PUBREL so it re-sent PUBCOMP. We need only to ignore this PUBCOMP.
@@ -1091,7 +1113,6 @@ namespace nanoFramework.M2Mqtt
             // if it is a PUBREC message (for QoS Level 2)
             else if (msg.Type == MqttMessageType.PublishReceived)
             {
-
                 // if it is a PUBREC but the corresponding PUBLISH isn't in the inflight queue,
                 // it means that we sent PUBLISH message more times (retries) but broker didn't send PUBREC in time
                 // the publish is failed and we need only to ignore this PUBREC.
@@ -1117,6 +1138,7 @@ namespace nanoFramework.M2Mqtt
                 {
                     _internalQueue.Enqueue(msg);
                 }
+
 #if DEBUG
                 Debug.WriteLine($"enqueued {msg}");
 #endif
@@ -1182,15 +1204,11 @@ namespace nanoFramework.M2Mqtt
                             case MqttMessageType.PingResponse:
 
                                 _msgReceived = MqttMsgPingResp.Parse(fixedHeaderFirstByte[0], ProtocolVersion, _channel);
+                                _internalQueue.Clear();
+                                _session?.Clear();
+                                _waitingForAnswer.Clear();
 #if DEBUG
                                 Debug.WriteLine($"RECV {_msgReceived}");
-                                lock (_internalQueue)
-                                {
-                                    foreach(MqttMsgBase ms in _internalQueue)
-                                    {
-                                        Debug.WriteLine($"Stuck {ms}");
-                                    }
-                                }
 #endif
                                 _syncEndReceiving.Set();
                                 break;
@@ -1206,7 +1224,6 @@ namespace nanoFramework.M2Mqtt
 #if DEBUG
                                 Debug.WriteLine($"RECV {suback}");
 #endif
-
                                 // enqueue SUBACK message into the internal queue
                                 EnqueueInternal(suback);
 
@@ -1219,7 +1236,6 @@ namespace nanoFramework.M2Mqtt
 #if DEBUG
                                 Debug.WriteLine($"RECV {publish}");
 #endif
-
                                 // enqueue PUBLISH message to acknowledge into the inflight queue
                                 EnqueueInflight(publish, MqttMsgFlow.ToAcknowledge);
 
@@ -1233,7 +1249,6 @@ namespace nanoFramework.M2Mqtt
 #if DEBUG
                                 Debug.WriteLine($"RECV {puback}");
 #endif
-
                                 // enqueue PUBACK message into the internal queue
                                 EnqueueInternal(puback);
 
@@ -1247,7 +1262,6 @@ namespace nanoFramework.M2Mqtt
 #if DEBUG
                                 Debug.WriteLine($"RECV {pubrec}");
 #endif
-
                                 // enqueue PUBREC message into the internal queue
                                 EnqueueInternal(pubrec);
 
@@ -1275,7 +1289,6 @@ namespace nanoFramework.M2Mqtt
 #if DEBUG
                                 Debug.WriteLine($"RECV {pubcomp}");
 #endif
-
                                 // enqueue PUBCOMP message into the internal queue
                                 EnqueueInternal(pubcomp);
 
@@ -1532,6 +1545,7 @@ namespace nanoFramework.M2Mqtt
             int timeout = Timeout.Infinite;
             int delta;
             bool msgReceivedProcessed = false;
+            bool toEnqueue = true;
 
             try
             {
@@ -1573,7 +1587,9 @@ namespace nanoFramework.M2Mqtt
 
                             // check to be sure that client isn't closing and all queues are now empty !
                             if (!_isRunning)
+                            {
                                 break;
+                            }
 
                             lock (_inflightQueue)
                             {
@@ -1611,11 +1627,12 @@ namespace nanoFramework.M2Mqtt
                                 case MqttMsgState.SendSubscribe:
                                 case MqttMsgState.SendUnsubscribe:
 
-                                    // QoS 1, PUBLISH or SUBSCRIBE/UNSUBSCRIBE message to send to broker, state change to wait PUBACK or SUBACK/UNSUBACK
+                                    // QoS 1, PUBLISH or SUBSCRIBE/UNSUBSCRIBE message to send to broker, state change to wait PUBACK or SUBACK/UNSUBACK                                    
                                     if (msgContext.Flow == MqttMsgFlow.ToPublish)
                                     {
                                         msgContext.Timestamp = Environment.TickCount;
                                         msgContext.Attempt++;
+                                        toEnqueue = true;
 
                                         if (msgInflight.Type == MqttMessageType.Publish)
                                         {
@@ -1624,6 +1641,13 @@ namespace nanoFramework.M2Mqtt
                                             // retry ? set dup flag [v3.1.1] only for PUBLISH message
                                             if (msgContext.Attempt > 1)
                                             {
+                                                lock (_waitingForAnswer)
+                                                {
+                                                    if (!_waitingForAnswer.Contains(msgContext.Message.MessageId))
+                                                    {
+                                                        toEnqueue = false;
+                                                    }
+                                                }
                                                 msgInflight.DupFlag = true;
                                             }
                                         }
@@ -1637,16 +1661,18 @@ namespace nanoFramework.M2Mqtt
                                             msgContext.State = MqttMsgState.WaitForUnsuback;
                                         }
 
-                                        Send(msgInflight);
+                                        if (toEnqueue)
+                                        {
+                                            Send(msgInflight);
+                                            // re-enqueue message (I have to re-analyze for receiving PUBACK, SUBACK or UNSUBACK)
+                                            lock (_inflightQueue)
+                                            {
+                                                _inflightQueue.Enqueue(msgContext);
+                                            }
+                                        }
 
                                         // update timeout : minimum between delay (based on current message sent) or current timeout
                                         timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
-
-                                        // re-enqueue message (I have to re-analyze for receiving PUBACK, SUBACK or UNSUBACK)
-                                        lock (_inflightQueue)
-                                        {
-                                            _inflightQueue.Enqueue(msgContext);
-                                        }
                                     }
                                     // QoS 1, PUBLISH message received from broker to acknowledge, send PUBACK
                                     else if (msgContext.Flow == MqttMsgFlow.ToAcknowledge)
@@ -1676,20 +1702,35 @@ namespace nanoFramework.M2Mqtt
                                     {
                                         msgContext.Timestamp = Environment.TickCount;
                                         msgContext.Attempt++;
+                                        toEnqueue = true;
+
                                         msgContext.State = MqttMsgState.WaitForPubrec;
                                         // retry ? set dup flag
                                         if (msgContext.Attempt > 1)
-                                            msgInflight.DupFlag = true;
+                                        {
+                                            lock (_waitingForAnswer)
+                                            {
+                                                if (!_waitingForAnswer.Contains(msgContext.Message.MessageId))
+                                                {
+                                                    toEnqueue = false;
+                                                }
+                                            }
 
-                                        Send(msgInflight);
+                                            msgInflight.DupFlag = true;
+                                        }
+
+                                        if (toEnqueue)
+                                        {
+                                            Send(msgInflight);
+                                            lock (_inflightQueue)
+                                            {
+                                                // re-enqueue message (I have to re-analyze for receiving PUBREC)
+                                                _inflightQueue.Enqueue(msgContext);
+                                            }
+                                        }
 
                                         // update timeout : minimum between delay (based on current message sent) or current timeout
                                         timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
-                                        lock (_inflightQueue)
-                                        {
-                                            // re-enqueue message (I have to re-analyze for receiving PUBREC)
-                                            _inflightQueue.Enqueue(msgContext);
-                                        }
                                     }
                                     // QoS 2, PUBLISH message received from broker to acknowledge, send PUBREC, state change to wait PUBREL
                                     else if (msgContext.Flow == MqttMsgFlow.ToAcknowledge)
@@ -1738,12 +1779,6 @@ namespace nanoFramework.M2Mqtt
                                                 ((msgReceived.Type == MqttMessageType.SubscribeAck) && (msgInflight.Type == MqttMessageType.Subscribe) && (msgReceived.MessageId == msgInflight.MessageId)) ||
                                                 ((msgReceived.Type == MqttMessageType.UnsubscribeAck) && (msgInflight.Type == MqttMessageType.Unsubscribe) && (msgReceived.MessageId == msgInflight.MessageId)))
                                             {
-                                                lock (_internalQueue)
-                                                {
-                                                    // received message processed
-                                                    _internalQueue.Dequeue();
-                                                }
-
                                                 acknowledge = true;
                                                 msgReceivedProcessed = true;
 #if DEBUG
@@ -1862,7 +1897,7 @@ namespace nanoFramework.M2Mqtt
                                                 msgReceivedProcessed = true;
 #if DEBUG
                                                 Debug.WriteLine($"dequeued {msgReceived}");
-#endif                                               
+#endif
                                                 MqttMsgPubrel pubrel = new MqttMsgPubrel
                                                 {
                                                     MessageId = msgInflight.MessageId
@@ -1896,6 +1931,7 @@ namespace nanoFramework.M2Mqtt
                                                 if (msgContext.Attempt < _settings.AttemptsOnRetry)
                                                 {
                                                     msgContext.State = MqttMsgState.QueuedQos2;
+                                                    msgContext.Timestamp = Environment.TickCount;
 
                                                     // re-enqueue message
                                                     lock (_inflightQueue)
@@ -1965,7 +2001,7 @@ namespace nanoFramework.M2Mqtt
                                                 msgReceivedProcessed = true;
 #if DEBUG
                                                 Debug.WriteLine($"dequeued {msgReceived}");
-#endif                                                
+#endif
                                                 MqttMsgPubcomp pubcomp = new MqttMsgPubcomp
                                                 {
                                                     MessageId = msgInflight.MessageId
@@ -2039,7 +2075,7 @@ namespace nanoFramework.M2Mqtt
                                                 msgReceivedProcessed = true;
 #if DEBUG
                                                 Debug.WriteLine($"dequeued {msgReceived}");
-#endif                                                
+#endif
                                                 internalEvent = new MsgPublishedInternalEvent(msgReceived, true);
                                                 // notify received acknowledge from broker of a published message
                                                 OnInternalEvent(internalEvent);
