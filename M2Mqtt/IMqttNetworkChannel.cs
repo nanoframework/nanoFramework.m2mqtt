@@ -28,6 +28,11 @@ namespace nanoFramework.M2Mqtt
         bool DataAvailable { get; }
 
         /// <summary>
+        /// True to check the certificate when connecting using TLS.
+        /// </summary>
+        bool CertificateCheck { get; set; }
+
+        /// <summary>
         /// Receive data from the network channel
         /// </summary>
         /// <param name="buffer">Data buffer for receiving data</param>

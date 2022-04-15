@@ -429,6 +429,8 @@ namespace nanoFramework.M2Mqtt
 
             try
             {
+                // Set the certificate check
+                _channel.CertificateCheck = _settings.CertificateCheck;
                 // connect to the broker
                 _channel.Connect();
             }

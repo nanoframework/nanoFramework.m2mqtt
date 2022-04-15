@@ -98,6 +98,11 @@ namespace nanoFramework.M2Mqtt
         public int InflightQueueSize { get; set; }
         
         /// <summary>
+        /// True to check the certificate when connection using TLS.
+        /// </summary>
+        public bool CertificateCheck { get; set; }
+
+        /// <summary>
         /// Singleton instance of settings
         /// </summary>
         public static MqttSettings Instance
@@ -125,6 +130,7 @@ namespace nanoFramework.M2Mqtt
             DelayOnRetry = DefaultDelayRetry;
             TimeoutOnConnection = ConnectTimeout;
             InflightQueueSize = DefaultInflightQueueSize;
+            CertificateCheck = true;
         }
     }
 }
