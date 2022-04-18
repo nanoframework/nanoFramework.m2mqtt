@@ -99,6 +99,8 @@ namespace nanoFramework.M2Mqtt
         
         /// <summary>
         /// True to check the certificate when connection using TLS.
+        /// Disabling this property will bypass the validation of the server root CA certificate.
+        /// Using the library this way it's unsecured and, therefore, not recommended.
         /// </summary>
         public bool CertificateCheck { get; set; }
 
