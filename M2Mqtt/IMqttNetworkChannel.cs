@@ -32,7 +32,7 @@ namespace nanoFramework.M2Mqtt
         /// Disabling this property will bypass the validation of the server root CA certificate.
         /// Using the library this way it's unsecured and, therefore, not recommended.
         /// </summary>
-        bool CertificateCheck { get; set; }
+        bool ValidateServerCertificate { get; set; }
 
         /// <summary>
         /// Receive data from the network channel

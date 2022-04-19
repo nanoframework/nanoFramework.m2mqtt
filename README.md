@@ -216,8 +216,8 @@ In some cases, it can be handy to avoid the certificate checks when connecting t
 ```csharp
 // You can specify no certificate at all
 MqttClient mqtt = new MqttClient(IoTHub, 8883, true, null, null, MqttSslProtocols.TLSv1_2);
-// And you have to setup the CertificateCheck to false
-mqtt.Settings.CertificateCheck = false;
+// And you have to setup the ValidateServerCertificate to false
+mqtt.Settings.ValidateServerCertificate = false;
 string clientId = Guid.NewGuid().ToString();
 client.Connect(clientId);
 ```

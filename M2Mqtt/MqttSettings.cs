@@ -98,11 +98,11 @@ namespace nanoFramework.M2Mqtt
         public int InflightQueueSize { get; set; }
         
         /// <summary>
-        /// True to check the certificate when connection using TLS.
+        /// True to check the server certificate when connection using TLS.
         /// Disabling this property will bypass the validation of the server root CA certificate.
         /// Using the library this way it's unsecured and, therefore, not recommended.
         /// </summary>
-        public bool CertificateCheck { get; set; }
+        public bool ValidateServerCertificate { get; set; }
 
         /// <summary>
         /// Singleton instance of settings
@@ -132,7 +132,7 @@ namespace nanoFramework.M2Mqtt
             DelayOnRetry = DefaultDelayRetry;
             TimeoutOnConnection = ConnectTimeout;
             InflightQueueSize = DefaultInflightQueueSize;
-            CertificateCheck = true;
+            ValidateServerCertificate = true;
         }
     }
 }

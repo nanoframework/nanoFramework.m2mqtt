@@ -71,11 +71,11 @@ namespace nanoFramework.M2Mqtt
         public bool DataAvailable => _secure ? _sslStream.DataAvailable : _socket.Available > 0;
 
         /// <summary>
-        /// True to check the certificate when connecting using TLS.
+        /// True to check the server certificate when connecting using TLS.
         /// Disabling this property will bypass the validation of the server root CA certificate.
         /// Using the library this way it's unsecured and, therefore, not recommended.
         /// </summary>
-        public bool CertificateCheck { get; set; } = true;
+        public bool ValidateServerCertificate { get; set; } = true;
 
         /// <summary>
         /// Constructor
@@ -159,7 +159,7 @@ namespace nanoFramework.M2Mqtt
                 // create SSL stream
                 _sslStream = new SslStream(_socket);
                 _sslStream.UseStoredDeviceCertificate = _clientCert is null;
-                if(!CertificateCheck)
+                if(!ValidateServerCertificate)
                 {
                     _sslStream.SslVerification = SslVerification.NoVerification;
                 }
