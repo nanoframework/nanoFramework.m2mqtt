@@ -57,6 +57,8 @@ jobs:
   # all build, update and publish steps
   - template: azure-pipelines-templates/class-lib-build.yml@templates
     parameters:
+      runUnitTests: true
+      unitTestRunsettings: '$(System.DefaultWorkingDirectory)\.runsettings'
       sonarCloudProject: 'nanoframework_paho.mqtt.m2mqtt'
 
 ##############################
