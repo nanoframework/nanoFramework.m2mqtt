@@ -140,8 +140,8 @@ namespace TestMqtt
         static void WaitIP()
         {
             Debug.WriteLine("Waiting for IP...");
-
-            while (true)
+            var ipV4AttemptCount = 0;
+            while (ipV4AttemptCount < 1000)
             {
                 NetworkInterface ni = NetworkInterface.GetAllNetworkInterfaces()[0];
                 if (ni.IPv4Address != null && ni.IPv4Address.Length > 0)
@@ -153,10 +153,13 @@ namespace TestMqtt
                     }
                 }
 
+                ipV4AttemptCount += 1;
                 Thread.Sleep(500);
+
             }
+
+            Debug.WriteLine($"Failed to get an IP address!");
+
         }
-
-
     }
 }
