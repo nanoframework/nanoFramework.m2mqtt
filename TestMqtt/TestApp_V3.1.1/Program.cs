@@ -26,21 +26,22 @@ namespace TestMqtt
             // Wait for Wifi/network to connect (temp)
             SetupAndConnectNetwork();
 
+            string BrokerAddress = "192.168.2.129";
+            client = new MqttClient(BrokerAddress);
+
+            // register a callback-function (we have to implement, see below) which is called by the library when a message was received
+            client.MqttMsgPublishReceived += Client_MqttMsgPublishReceived;
+            client.MqttMsgSubscribed += Client_MqttMsgSubscribed;
+
+            // use a unique id as client id, each time we start the application
+            //clientId = Guid.NewGuid().ToString();
+            clientId = new Guid(1, 23, 44, 32, 45, 33, 22, 11, 1, 2, 3).ToString();
+
             // Loop forever
-            while (true)
+            while (true && client != null)
             {
                 try
                 {
-                    string BrokerAddress = "192.168.2.129";
-                    client = new MqttClient(BrokerAddress);
-
-                    // register a callback-function (we have to implement, see below) which is called by the library when a message was received
-                    client.MqttMsgPublishReceived += Client_MqttMsgPublishReceived;
-                    client.MqttMsgSubscribed += Client_MqttMsgSubscribed;
-
-                    // use a unique id as client id, each time we start the application
-                    //clientId = Guid.NewGuid().ToString();
-                    clientId = new Guid(1, 23, 44, 32, 45, 33, 22, 11, 1, 2, 3).ToString();
 
                     Debug.WriteLine("Connecting MQTT");
 
