@@ -26,7 +26,7 @@ namespace TestMqtt
             // Wait for Wifi/network to connect (temp)
             SetupAndConnectNetwork();
 
-            string BrokerAddress = "192.168.2.129";
+            string BrokerAddress = "<YOUR_BROKER_ADDRESS_HERE>";
             client = new MqttClient(BrokerAddress);
 
             // register a callback-function (we have to implement, see below) which is called by the library when a message was received
@@ -80,6 +80,7 @@ namespace TestMqtt
                 // Wait before retry
                 Thread.Sleep(10000);
             }
+            Thread.Sleep(Timeout.Infinite);
         }
 
         private static void Client_MqttMsgSubscribed(object sender, MqttMsgSubscribedEventArgs e)
