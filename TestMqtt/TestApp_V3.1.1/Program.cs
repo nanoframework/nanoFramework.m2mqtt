@@ -13,8 +13,9 @@ namespace TestMqtt
 {
     public class Program
     {
-        private const string c_SSID = "myssid";
-        private const string c_AP_PASSWORD = "mypassword";
+        private const string c_SSID = "<YOUR_SSID_HERE>";
+        private const string c_AP_PASSWORD = "<YOUR_SSID_PASSWORD_HERE>";
+        private const string c_BrokerAddress = "<YOUR_BROKER_ADDRESS_HERE>";
 
         public static void Main()
         {
@@ -26,8 +27,8 @@ namespace TestMqtt
             // Wait for Wifi/network to connect (temp)
             SetupAndConnectNetwork();
 
-            string BrokerAddress = "<YOUR_BROKER_ADDRESS_HERE>";
-            client = new MqttClient(BrokerAddress);
+            
+            client = new MqttClient(c_BrokerAddress);
 
             // register a callback-function (we have to implement, see below) which is called by the library when a message was received
             client.MqttMsgPublishReceived += Client_MqttMsgPublishReceived;
