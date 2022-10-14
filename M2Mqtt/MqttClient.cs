@@ -982,7 +982,7 @@ namespace nanoFramework.M2Mqtt
                     State = state,
                     Flow = flow,
                     Attempt = 0,
-                    Timestamp = (int)Environment.TickCount64
+                    Timestamp = Environment.TickCount64
                 };
 
                 lock (_inflightQueue)
@@ -1401,7 +1401,7 @@ namespace nanoFramework.M2Mqtt
 
                 if (_isRunning)
                 {
-                    delta = (int)Environment.TickCount64 - _lastCommTime;
+                    delta = (int)(Environment.TickCount64 - _lastCommTime);
 
                     // if timeout exceeded ...
                     if (delta >= _keepAlivePeriod)
@@ -1819,7 +1819,7 @@ namespace nanoFramework.M2Mqtt
                                         // current message not acknowledged, no PUBACK or SUBACK/UNSUBACK or not equal messageid 
                                         if (!acknowledge)
                                         {
-                                            delta = (int)Environment.TickCount64 - msgContext.Timestamp;
+                                            delta = (int)(Environment.TickCount64 - msgContext.Timestamp);
                                             // check timeout for receiving PUBACK since PUBLISH was sent or
                                             // for receiving SUBACK since SUBSCRIBE was sent or
                                             // for receiving UNSUBACK since UNSUBSCRIBE was sent
@@ -1932,7 +1932,7 @@ namespace nanoFramework.M2Mqtt
                                         // current message not acknowledged
                                         if (!acknowledge)
                                         {
-                                            delta = (int)Environment.TickCount64 - msgContext.Timestamp;
+                                            delta = (int)(Environment.TickCount64 - msgContext.Timestamp);
                                             // check timeout for receiving PUBREC since PUBLISH was sent
                                             if (delta >= _settings.DelayOnRetry)
                                             {
@@ -2131,7 +2131,7 @@ namespace nanoFramework.M2Mqtt
                                         // current message not acknowledged
                                         if (!acknowledge)
                                         {
-                                            delta = (int)Environment.TickCount64 - msgContext.Timestamp;
+                                            delta = (int)(Environment.TickCount64 - msgContext.Timestamp);
                                             // check timeout for receiving PUBCOMP since PUBREL was sent
                                             if (delta >= _settings.DelayOnRetry)
                                             {
