@@ -62,7 +62,7 @@ namespace nanoFramework.M2Mqtt
         private AutoResetEvent _keepAliveEvent;
         private AutoResetEvent _keepAliveEventEnd;
         // last communication time in ticks
-        private int _lastCommTime;
+        private long _lastCommTime;
         // channel to communicate over the network
         private IMqttNetworkChannel _channel;
 
@@ -781,7 +781,7 @@ namespace nanoFramework.M2Mqtt
                 _channel.Send(msgBytes);
 
                 // update last message sent ticks
-                _lastCommTime = (int)Environment.TickCount64;
+                _lastCommTime = Environment.TickCount64;
             }
             catch (Exception e)
             {
@@ -821,7 +821,7 @@ namespace nanoFramework.M2Mqtt
                 _channel.Send(msgBytes);
 
                 // update last message sent ticks
-                _lastCommTime = (int)Environment.TickCount64;
+                _lastCommTime = Environment.TickCount64;
             }
             catch (Exception e)
             {
