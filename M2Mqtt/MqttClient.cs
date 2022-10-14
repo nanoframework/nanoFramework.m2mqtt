@@ -1638,7 +1638,7 @@ namespace nanoFramework.M2Mqtt
                                     // QoS 1, PUBLISH or SUBSCRIBE/UNSUBSCRIBE message to send to broker, state change to wait PUBACK or SUBACK/UNSUBACK                                    
                                     if (msgContext.Flow == MqttMsgFlow.ToPublish)
                                     {
-                                        msgContext.Timestamp = (int)Environment.TickCount64;
+                                        msgContext.Timestamp = Environment.TickCount64;
                                         msgContext.Attempt++;
                                         toEnqueue = true;
 
@@ -1709,7 +1709,7 @@ namespace nanoFramework.M2Mqtt
                                     // QoS 2, PUBLISH message to send to broker, state change to wait PUBREC
                                     if (msgContext.Flow == MqttMsgFlow.ToPublish)
                                     {
-                                        msgContext.Timestamp = (int)Environment.TickCount64;
+                                        msgContext.Timestamp = Environment.TickCount64;
                                         msgContext.Attempt++;
                                         toEnqueue = true;
 
@@ -1913,7 +1913,7 @@ namespace nanoFramework.M2Mqtt
                                                 };
 
                                                 msgContext.State = MqttMsgState.WaitForPubcomp;
-                                                msgContext.Timestamp = (int)Environment.TickCount64;
+                                                msgContext.Timestamp = Environment.TickCount64;
                                                 msgContext.Attempt = 1;
 
                                                 Send(pubrel);
@@ -1940,7 +1940,7 @@ namespace nanoFramework.M2Mqtt
                                                 if (msgContext.Attempt < _settings.AttemptsOnRetry)
                                                 {
                                                     msgContext.State = MqttMsgState.QueuedQos2;
-                                                    msgContext.Timestamp = (int)Environment.TickCount64;
+                                                    msgContext.Timestamp = Environment.TickCount64;
 
                                                     // re-enqueue message
                                                     lock (_inflightQueue)
@@ -2198,7 +2198,7 @@ namespace nanoFramework.M2Mqtt
                                         };
 
                                         msgContext.State = MqttMsgState.WaitForPubcomp;
-                                        msgContext.Timestamp = (int)Environment.TickCount64;
+                                        msgContext.Timestamp = Environment.TickCount64;
                                         msgContext.Attempt++;
                                         // retry ? set dup flag [v3.1.1] no needed
                                         if (ProtocolVersion == MqttProtocolVersion.Version_3_1)
