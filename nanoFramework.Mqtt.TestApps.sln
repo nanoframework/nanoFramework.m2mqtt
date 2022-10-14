@@ -6,7 +6,7 @@ Project("{11A8DD76-328B-46DF-9F39-F559912D0360}") = "Mosquito.TemperatureGauge",
 EndProject
 Project("{11A8DD76-328B-46DF-9F39-F559912D0360}") = "nanoFramework.M2Mqtt", "M2Mqtt\nanoFramework.M2Mqtt.nfproj", "{35948E70-4CE5-45B4-B305-B66B20AB67AD}"
 EndProject
-Project("{11A8DD76-328B-46DF-9F39-F559912D0360}") = "TestMqtt-mosquittov3.1.1", "TestMqtt\TestMqtt-mosquittov3.1.1.nfproj", "{C75F31E1-259C-41C5-88D6-0E8960CDCE3A}"
+Project("{11A8DD76-328B-46DF-9F39-F559912D0360}") = "TestMqtt-mosquittov3.1.1", "TestMqtt\TestMqtt-mosquittov3.1.1\TestMqtt-mosquittov3.1.1.nfproj", "{C75F31E1-259C-41C5-88D6-0E8960CDCE3A}"
 EndProject
 Project("{11A8DD76-328B-46DF-9F39-F559912D0360}") = "TestAppv5.0", "TestMqtt\TestAppv5.0\TestAppv5.0.nfproj", "{2AD04754-76B6-4F12-A2AC-6A1D56EA5442}"
 EndProject
