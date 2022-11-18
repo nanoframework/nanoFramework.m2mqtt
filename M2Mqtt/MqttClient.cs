@@ -685,7 +685,7 @@ namespace nanoFramework.M2Mqtt
         /// </summary>
         /// <param name="topic">Message topic.</param>
         /// <param name="message">Message data (payload).</param>
-        /// <param name="contentType">Content of the application message.</param>
+        /// <param name="contentType">Content of the application message. This is only available for MQTT v5.0.</param>
         /// <returns>Message Id related to PUBLISH message.</returns>
         public ushort Publish(
             string topic,
@@ -705,7 +705,7 @@ namespace nanoFramework.M2Mqtt
         /// </summary>
         /// <param name="topic">Message topic.</param>
         /// <param name="message">Message data (payload).</param>
-        /// <param name="contentType">Content of the application message.</param>
+        /// <param name="contentType">Content of the application message. This is only available for MQTT v5.0.</param>
         /// <param name="qosLevel">QoS Level.</param>
         /// <param name="retain">Retain flag.</param>
         /// <returns>Message Id related to PUBLISH message.</returns>
