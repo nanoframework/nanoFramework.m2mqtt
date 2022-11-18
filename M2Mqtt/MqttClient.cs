@@ -715,6 +715,7 @@ namespace nanoFramework.M2Mqtt
         /// <param name="userProperties">User properties for the application message. This is only available for MQTT v5.0</param>
         /// <returns>Message Id related to PUBLISH message.</returns>
         /// <exception cref="ArgumentException">If <paramref name="userProperties"/> elements aren't of type <see cref="UserProperty"/>.</exception>
+        /// <exception cref="NotSupportedException">If setting a parameter that is not supported in the MQTT version set for this <see cref="MqttClient"/>.</exception>
         public ushort Publish(
             string topic,
             byte[] message,
@@ -740,6 +741,7 @@ namespace nanoFramework.M2Mqtt
         /// <param name="retain">Retain flag.</param>
         /// <returns>Message Id related to PUBLISH message.</returns>
         /// <exception cref="ArgumentException">If <paramref name="userProperties"/> elements aren't of type <see cref="UserProperty"/>.</exception>
+        /// <exception cref="NotSupportedException">If setting a parameter that is not supported in the MQTT version set for this <see cref="MqttClient"/>.</exception>
         public ushort Publish(
             string topic,
             byte[] message,
@@ -2509,9 +2511,14 @@ namespace nanoFramework.M2Mqtt
 
             mqttMsgPublish.ContentType = contentType;
 
-            if (userProperties != null
-                && userProperties.Count > 0)
+            if (userProperties != null)
             {
+                if (ProtocolVersion < MqttProtocolVersion.Version_5)
+                {
+                    // user properties are only supported in v5
+                    throw new NotSupportedException();
+                }
+
                 // performs validation of collection items
                 foreach (var property in userProperties)
                 {
