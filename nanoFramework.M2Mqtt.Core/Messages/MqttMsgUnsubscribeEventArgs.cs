@@ -20,22 +20,29 @@ using System;
 namespace nanoFramework.M2Mqtt.Messages
 {
     /// <summary>
-    /// Event Args class for unsubscribed topic
+    /// Represents the event arguments for unsubscribe request on topics.
     /// </summary>
-    public class MqttMsgUnsubscribedEventArgs : EventArgs
+    public class MqttMsgUnsubscribeEventArgs : EventArgs
     {
         /// <summary>
-        /// Message identifier
+        /// Gets the message identifier.
         /// </summary>
-        public ushort MessageId { get; internal set; }      
+        public ushort MessageId { get; internal set; }
 
         /// <summary>
-        /// Constructor
+        /// Gets the topics requested to subscribe.
         /// </summary>
-        /// <param name="messageId">Message identifier for unsubscribed topic</param>
-        public MqttMsgUnsubscribedEventArgs(ushort messageId)
+        public string[] Topics { get; internal set; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MqttMsgUnsubscribeEventArgs"/> class with the specified message identifier and topics.
+        /// </summary>
+        /// <param name="messageId">The message identifier for subscribed topics.</param>
+        /// <param name="topics">The topics requested to unsubscribe from.</param>
+        public MqttMsgUnsubscribeEventArgs(ushort messageId, string[] topics)
         {
             MessageId = messageId;
+            Topics = topics;
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2013, 2014 Paolo Patierno
 
 All rights reserved. This program and the accompanying materials
@@ -15,36 +15,27 @@ Contributors:
    .NET Foundation and Contributors - nanoFramework support
 */
 
-namespace nanoFramework.M2Mqtt
+using System;
+
+namespace nanoFramework.M2Mqtt.Messages
 {
     /// <summary>
-    /// Supported SSL/TLS protocol versions
+    /// Represents the event arguments for when a topic has been unsubscribed.
     /// </summary>
-    public enum MqttSslProtocols
+    public class MqttMsgUnsubscribedEventArgs : EventArgs
     {
         /// <summary>
-        /// None
+        /// Gets the message identifier associated with the unsubscribed topic.
         /// </summary>
-        None,
+        public ushort MessageId { get; }
+
         /// <summary>
-        /// SSL version 3
+        /// Initializes a new instance of the <see cref="MqttMsgUnsubscribedEventArgs"/> class with the specified message identifier.
         /// </summary>
-        SSLv3,
-        /// <summary>
-        /// TLS version 1.0
-        /// </summary>
-        TLSv1_0,
-        /// <summary>
-        /// TLS version 1.1
-        /// </summary>
-        TLSv1_1,
-        /// <summary>
-        /// TLS version 1.2
-        /// </summary>
-        TLSv1_2,
-        /// <summary>
-        /// TLS version 1.3
-        /// </summary>
-        TLSv1_3
+        /// <param name="messageId">The message identifier associated with the unsubscribed topic.</param>
+        public MqttMsgUnsubscribedEventArgs(ushort messageId)
+        {
+            MessageId = messageId;
+        }
     }
 }

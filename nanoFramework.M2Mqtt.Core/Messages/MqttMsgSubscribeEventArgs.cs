@@ -20,29 +20,36 @@ using System;
 namespace nanoFramework.M2Mqtt.Messages
 {
     /// <summary>
-    /// Event Args class for unsubscribe request on topics
+    /// Represents the event arguments for a subscription request on topics.
     /// </summary>
-    public class MqttMsgUnsubscribeEventArgs : EventArgs
+    public class MqttMsgSubscribeEventArgs : EventArgs
     {
         /// <summary>
-        /// Message identifier
+        /// Gets the message identifier associated with the subscription request.
         /// </summary>
         public ushort MessageId { get; internal set; }
 
         /// <summary>
-        /// Topics requested to subscribe
+        /// Gets the topics requested to subscribe.
         /// </summary>
         public string[] Topics { get; internal set; }
 
         /// <summary>
-        /// Constructor
+        /// Gets the list of Quality of Service (QoS) levels requested.
         /// </summary>
-        /// <param name="messageId">Message identifier for subscribed topics</param>
-        /// <param name="topics">Topics requested to subscribe</param>
-        public MqttMsgUnsubscribeEventArgs(ushort messageId, string[] topics)
+        public MqttQoSLevel[] QoSLevels { get; internal set; }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="MqttMsgSubscribeEventArgs"/> class with the specified parameters.
+        /// </summary>
+        /// <param name="messageId">The message identifier associated with the subscription request.</param>
+        /// <param name="topics">The topics requested to subscribe.</param>
+        /// <param name="qosLevels">The list of Quality of Service (QoS) levels requested.</param>
+        public MqttMsgSubscribeEventArgs(ushort messageId, string[] topics, MqttQoSLevel[] qosLevels)
         {
             MessageId = messageId;
             Topics = topics;
+            QoSLevels = qosLevels;
         }
     }
 }

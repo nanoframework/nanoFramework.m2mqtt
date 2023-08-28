@@ -20,36 +20,29 @@ using System;
 namespace nanoFramework.M2Mqtt.Messages
 {
     /// <summary>
-    /// Event Args class for subscribe request on topics
+    /// Represents the event arguments for successfully subscribed topics.
     /// </summary>
-    public class MqttMsgSubscribeEventArgs : EventArgs
+    public class MqttMsgSubscribedEventArgs : EventArgs
     {
         /// <summary>
-        /// Message identifier
+        /// Gets the message identifier associated with the subscription request.
         /// </summary>
         public ushort MessageId { get; internal set; }
 
         /// <summary>
-        /// Topics requested to subscribe
+        /// Gets the list of granted Quality of Service (QoS) levels for the subscribed topics.
         /// </summary>
-        public string[] Topics { get; internal set; }
+        public MqttQoSLevel[] GrantedQoSLevels { get; internal set; }
 
         /// <summary>
-        /// List of QOS Levels requested
+        /// Initializes a new instance of the <see cref="MqttMsgSubscribedEventArgs"/> class with the specified parameters.
         /// </summary>
-        public MqttQoSLevel[] QoSLevels { get; internal set; }
-
-        /// <summary>
-        /// Constructor
-        /// </summary>
-        /// <param name="messageId">Message identifier for subscribe topics request</param>
-        /// <param name="topics">Topics requested to subscribe</param>
-        /// <param name="qosLevels">List of QOS Levels requested</param>
-        public MqttMsgSubscribeEventArgs(ushort messageId, string[] topics, MqttQoSLevel[] qosLevels)
+        /// <param name="messageId">The message identifier associated with the subscription request.</param>
+        /// <param name="grantedQosLevels">The list of granted Quality of Service (QoS) levels for the subscribed topics.</param>
+        public MqttMsgSubscribedEventArgs(ushort messageId, MqttQoSLevel[] grantedQosLevels)
         {
             MessageId = messageId;
-            Topics = topics;
-            QoSLevels = qosLevels;
+            GrantedQoSLevels = grantedQosLevels;
         }
     }
 }

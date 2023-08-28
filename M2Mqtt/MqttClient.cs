@@ -34,7 +34,7 @@ namespace nanoFramework.M2Mqtt
     /// <summary>
     /// MQTT Client
     /// </summary>
-    public class MqttClient : IDisposable
+    public class MqttClient : IMqttClient, IDisposable
     {
         // broker hostname (or ip address) and port
         private string _brokerHostName;
@@ -130,19 +130,22 @@ namespace nanoFramework.M2Mqtt
         /// <summary>
         /// The event for PUBLISH message received
         /// </summary>
-        public event MqttMsgPublishEventHandler MqttMsgPublishReceived;
+        public event IMqttClient.MqttMsgPublishEventHandler MqttMsgPublishReceived;
+
         /// <summary>
         /// The event for published message
         /// </summary>
-        public event MqttMsgPublishedEventHandler MqttMsgPublished;
+        public event IMqttClient.MqttMsgPublishedEventHandler MqttMsgPublished;
+
         /// <summary>
         /// The event for subscribed topic
         /// </summary>
-        public event MqttMsgSubscribedEventHandler MqttMsgSubscribed;
+        public event IMqttClient.MqttMsgSubscribedEventHandler MqttMsgSubscribed;
+
         /// <summary>
         /// The event for unsubscribed topic
         /// </summary>
-        public event MqttMsgUnsubscribedEventHandler MqttMsgUnsubscribed;
+        public event IMqttClient.MqttMsgUnsubscribedEventHandler MqttMsgUnsubscribed;
 
         /// <summary>
         /// The event for peer/client disconnection
@@ -152,7 +155,7 @@ namespace nanoFramework.M2Mqtt
         /// <summary>
         /// The event for peer/client disconnection
         /// </summary>
-        public event ConnectionClosedEventHandler ConnectionClosed;
+        public event IMqttClient.ConnectionClosedEventHandler ConnectionClosed;
 
         /// <summary>
         /// The event for peer/client disconnection
@@ -270,27 +273,31 @@ namespace nanoFramework.M2Mqtt
         }
 
         /// <summary>
-        /// Constructor
+        /// Initializes a new instance of the <see cref="MqttClient"/> class with default port and non-secure connection.
         /// </summary>
-        /// <param name="brokerHostName">Broker Host Name or IP Address</param>
+        /// <param name="brokerHostName">The Broker Host Name or IP Address.</param>
         public MqttClient(string brokerHostName) :
             this(brokerHostName, MqttSettings.BrokerDefaultPort, false, null, null, MqttSslProtocols.None)
         {
         }
 
         /// <summary>
-        /// Constructor
+        /// Initializes a new instance of the <see cref="MqttClient"/> class.
         /// </summary>
-        /// <param name="brokerHostName">Broker Host Name or IP Address</param>
-        /// <param name="brokerPort">Broker port</param>
-        /// <param name="secure">Using secure connection</param>
-        /// <param name="caCert">CA certificate for secure connection</param>
-        /// <param name="clientCert">Client certificate</param>
-        /// <param name="sslProtocol">SSL/TLS protocol</param>
+        /// <param name="brokerHostName">The Broker Host Name or IP Address.</param>
+        /// <param name="brokerPort">The Broker port.</param>
+        /// <param name="secure">A value indicating whether to use a secure connection (SSL/TLS).</param>
+        /// <param name="caCert">The CA (Certificate Authority) certificate for secure connection.</param>
+        /// <param name="clientCert">The client certificate for secure connection.</param>
+        /// <param name="sslProtocol">The SSL/TLS protocol to use.</param>
         public MqttClient(string brokerHostName, int brokerPort, bool secure, X509Certificate caCert, X509Certificate clientCert, MqttSslProtocols sslProtocol)
         {
             Init(brokerHostName, brokerPort, secure, caCert, clientCert, sslProtocol);
         }
+
+        /// <inheritdoc/>
+        public void Init(string brokerHostName, int brokerPort, bool secure, byte[] caCert, byte[] clientCert, MqttSslProtocols sslProtocol) =>
+            Init(brokerHostName, brokerPort, secure, caCert == null ? null : new X509Certificate(caCert), clientCert == null ? null : new X509Certificate(clientCert), sslProtocol);
 
         /// <summary>
         /// MqttClient initialization

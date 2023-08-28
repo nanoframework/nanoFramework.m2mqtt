@@ -24,33 +24,33 @@ using System;
 namespace nanoFramework.M2Mqtt.Messages
 {
     /// <summary>
-    /// Event Args class for published message
+    /// Represents the event arguments for a published message.
     /// </summary>
     public class MqttMsgPublishedEventArgs : EventArgs
     {
         /// <summary>
-        /// Message identifier
+        /// Gets or sets the message identifier.
         /// </summary>
         public ushort MessageId { get; set; }
 
         /// <summary>
-        /// Message published (or failed due to retries)
+        /// Gets or sets a value indicating whether the message was published (or failed due to retries).
         /// </summary>
         public bool IsPublished { get; set; }
 
         /// <summary>
-        /// Constructor (published message)
+        /// Initializes a new instance of the <see cref="MqttMsgPublishedEventArgs"/> class for a published message.
         /// </summary>
-        /// <param name="messageId">Message identifier published</param>
+        /// <param name="messageId">The message identifier that was published.</param>
         public MqttMsgPublishedEventArgs(ushort messageId)
             : this(messageId, true)
         { }
 
         /// <summary>
-        /// Constructor
+        /// Initializes a new instance of the <see cref="MqttMsgPublishedEventArgs"/> class.
         /// </summary>
-        /// <param name="messageId">Message identifier</param>
-        /// <param name="isPublished">Publish flag</param>
+        /// <param name="messageId">The message identifier.</param>
+        /// <param name="isPublished">A value indicating whether the message was published.</param>
         public MqttMsgPublishedEventArgs(ushort messageId, bool isPublished)
         {
             MessageId = messageId;

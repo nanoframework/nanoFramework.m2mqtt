@@ -20,48 +20,44 @@ using System;
 namespace nanoFramework.M2Mqtt.Messages
 {
     /// <summary>
-    /// Event Args class for PUBLISH message received from broker
+    /// Represents the event arguments for a PUBLISH message received from the broker.
     /// </summary>
     public class MqttMsgPublishEventArgs : EventArgs
     {
         /// <summary>
-        /// Message topic
+        /// Gets the topic of the received message.
         /// </summary>
         public string Topic { get; internal set; }
 
         /// <summary>
-        /// Message data
+        /// Gets the data of the received message.
         /// </summary>
         public byte[] Message { get; internal set; }
 
         /// <summary>
-        /// Duplicate message flag
+        /// Gets a value indicating whether the message is a duplicate delivery.
         /// </summary>
         public bool DupFlag { get; internal set; }
 
         /// <summary>
-        /// Quality of Service level
+        /// Gets the Quality of Service (QoS) level of the message.
         /// </summary>
         public MqttQoSLevel QosLevel { get; internal set; }
 
         /// <summary>
-        /// Retain message flag
+        /// Gets a value indicating whether the message should be retained by the broker.
         /// </summary>
         public bool Retain { get; internal set; }
 
         /// <summary>
-        /// Constructor
+        /// Initializes a new instance of the <see cref="MqttMsgPublishEventArgs"/> class with the specified parameters.
         /// </summary>
-        /// <param name="topic">Message topic</param>
-        /// <param name="message">Message data</param>
-        /// <param name="dupFlag">Duplicate delivery flag</param>
-        /// <param name="qosLevel">Quality of Service level</param>
-        /// <param name="retain">Retain flag</param>
-        public MqttMsgPublishEventArgs(string topic,
-                byte[] message,
-                bool dupFlag,
-                MqttQoSLevel qosLevel,
-                bool retain)
+        /// <param name="topic">The topic of the received message.</param>
+        /// <param name="message">The data of the received message.</param>
+        /// <param name="dupFlag">A value indicating whether the message is a duplicate delivery.</param>
+        /// <param name="qosLevel">The Quality of Service (QoS) level of the message.</param>
+        /// <param name="retain">A value indicating whether the message should be retained by the broker.</param>
+        public MqttMsgPublishEventArgs(string topic, byte[] message, bool dupFlag, MqttQoSLevel qosLevel, bool retain)
         {
             Topic = topic;
             Message = message;

@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (c) 2013, 2014 Paolo Patierno
 
 All rights reserved. This program and the accompanying materials
@@ -15,34 +15,41 @@ Contributors:
    .NET Foundation and Contributors - nanoFramework support
 */
 
-using System;
-
-namespace nanoFramework.M2Mqtt.Messages
+namespace nanoFramework.M2Mqtt
 {
     /// <summary>
-    /// Event Args class for subscribed topics
+    /// Supported SSL/TLS protocol versions.
     /// </summary>
-    public class MqttMsgSubscribedEventArgs : EventArgs
+    public enum MqttSslProtocols
     {
         /// <summary>
-        /// Message identifier
+        /// None.
         /// </summary>
-        public ushort MessageId { get; internal set; }
+        None,
 
         /// <summary>
-        /// List of granted QOS Levels
+        /// SSL version 3.
         /// </summary>
-        public MqttQoSLevel[] GrantedQoSLevels { get; internal set; }
+        SSLv3,
 
         /// <summary>
-        /// Constructor
+        /// TLS version 1.0.
         /// </summary>
-        /// <param name="messageId">Message identifier for subscribed topics</param>
-        /// <param name="grantedQosLevels">List of granted QOS Levels</param>
-        public MqttMsgSubscribedEventArgs(ushort messageId, MqttQoSLevel[] grantedQosLevels)
-        {
-            MessageId = messageId;
-            GrantedQoSLevels = grantedQosLevels;
-        }
+        TLSv1_0,
+
+        /// <summary>
+        /// TLS version 1.1.
+        /// </summary>
+        TLSv1_1,
+
+        /// <summary>
+        /// TLS version 1.2.
+        /// </summary>
+        TLSv1_2,
+
+        /// <summary>
+        /// TLS version 1.3.
+        /// </summary>
+        TLSv1_3,
     }
 }
