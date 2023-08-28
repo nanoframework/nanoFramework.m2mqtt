@@ -2,7 +2,23 @@
 
 ## [**Changes available only in 'Preview' NuGet packages:**](https://github.com/nanoframework/nanoFramework.m2mqtt/tree/HEAD)
 
-[Full Changelog](https://github.com/nanoframework/nanoFramework.m2mqtt/compare/v5.1.75...HEAD)
+[Full Changelog](https://github.com/nanoframework/nanoFramework.m2mqtt/compare/v5.1.79...HEAD)
+
+**Documentation and other chores:**
+
+- Update 1 NuGet dependencies [\#336](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/336)
+- Update 1 NuGet dependencies [\#335](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/335)
+- Update 1 NuGet dependencies [\#334](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/334)
+- Update 2 NuGet dependencies [\#333](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/333)
+- Update 1 NuGet dependencies [\#332](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/332)
+- Update 1 NuGet dependencies [\#331](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/331)
+- Update 1 NuGet dependencies [\#330](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/330)
+- Update 1 NuGet dependencies [\#329](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/329)
+- Update 1 NuGet dependencies [\#328](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/328)
+
+## [v5.1.79](https://github.com/nanoframework/nanoFramework.m2mqtt/tree/v5.1.79) (2023-01-14)
+
+[Full Changelog](https://github.com/nanoframework/nanoFramework.m2mqtt/compare/v5.1.75...v5.1.79)
 
 **Documentation and other chores:**
 
