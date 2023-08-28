@@ -20,19 +20,19 @@ using System;
 namespace nanoFramework.M2Mqtt.Messages
 {
     /// <summary>
-    /// Event Args class for unsubscribed topic
+    /// Represents the event arguments for when a topic has been unsubscribed.
     /// </summary>
     public class MqttMsgUnsubscribedEventArgs : EventArgs
     {
         /// <summary>
-        /// Message identifier
+        /// Gets the message identifier associated with the unsubscribed topic.
         /// </summary>
-        public ushort MessageId { get; internal set; }      
+        public ushort MessageId { get; }
 
         /// <summary>
-        /// Constructor
+        /// Initializes a new instance of the <see cref="MqttMsgUnsubscribedEventArgs"/> class with the specified message identifier.
         /// </summary>
-        /// <param name="messageId">Message identifier for unsubscribed topic</param>
+        /// <param name="messageId">The message identifier associated with the unsubscribed topic.</param>
         public MqttMsgUnsubscribedEventArgs(ushort messageId)
         {
             MessageId = messageId;

@@ -131,14 +131,17 @@ namespace nanoFramework.M2Mqtt
         /// The event for PUBLISH message received
         /// </summary>
         public event IMqttClient.MqttMsgPublishEventHandler MqttMsgPublishReceived;
+
         /// <summary>
         /// The event for published message
         /// </summary>
         public event IMqttClient.MqttMsgPublishedEventHandler MqttMsgPublished;
+
         /// <summary>
         /// The event for subscribed topic
         /// </summary>
         public event IMqttClient.MqttMsgSubscribedEventHandler MqttMsgSubscribed;
+
         /// <summary>
         /// The event for unsubscribed topic
         /// </summary>
@@ -270,23 +273,23 @@ namespace nanoFramework.M2Mqtt
         }
 
         /// <summary>
-        /// Constructor
+        /// Initializes a new instance of the <see cref="MqttClient"/> class with default port and non-secure connection.
         /// </summary>
-        /// <param name="brokerHostName">Broker Host Name or IP Address</param>
+        /// <param name="brokerHostName">The Broker Host Name or IP Address.</param>
         public MqttClient(string brokerHostName) :
             this(brokerHostName, MqttSettings.BrokerDefaultPort, false, null, null, MqttSslProtocols.None)
         {
         }
 
         /// <summary>
-        /// Constructor
+        /// Initializes a new instance of the <see cref="MqttClient"/> class.
         /// </summary>
-        /// <param name="brokerHostName">Broker Host Name or IP Address</param>
-        /// <param name="brokerPort">Broker port</param>
-        /// <param name="secure">Using secure connection</param>
-        /// <param name="caCert">CA certificate for secure connection</param>
-        /// <param name="clientCert">Client certificate</param>
-        /// <param name="sslProtocol">SSL/TLS protocol</param>
+        /// <param name="brokerHostName">The Broker Host Name or IP Address.</param>
+        /// <param name="brokerPort">The Broker port.</param>
+        /// <param name="secure">A value indicating whether to use a secure connection (SSL/TLS).</param>
+        /// <param name="caCert">The CA (Certificate Authority) certificate for secure connection.</param>
+        /// <param name="clientCert">The client certificate for secure connection.</param>
+        /// <param name="sslProtocol">The SSL/TLS protocol to use.</param>
         public MqttClient(string brokerHostName, int brokerPort, bool secure, X509Certificate caCert, X509Certificate clientCert, MqttSslProtocols sslProtocol)
         {
             Init(brokerHostName, brokerPort, secure, caCert, clientCert, sslProtocol);

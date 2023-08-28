@@ -20,25 +20,25 @@ using System;
 namespace nanoFramework.M2Mqtt.Messages
 {
     /// <summary>
-    /// Event Args class for subscribed topics
+    /// Represents the event arguments for successfully subscribed topics.
     /// </summary>
     public class MqttMsgSubscribedEventArgs : EventArgs
     {
         /// <summary>
-        /// Message identifier
+        /// Gets the message identifier associated with the subscription request.
         /// </summary>
         public ushort MessageId { get; internal set; }
 
         /// <summary>
-        /// List of granted QOS Levels
+        /// Gets the list of granted Quality of Service (QoS) levels for the subscribed topics.
         /// </summary>
         public MqttQoSLevel[] GrantedQoSLevels { get; internal set; }
 
         /// <summary>
-        /// Constructor
+        /// Initializes a new instance of the <see cref="MqttMsgSubscribedEventArgs"/> class with the specified parameters.
         /// </summary>
-        /// <param name="messageId">Message identifier for subscribed topics</param>
-        /// <param name="grantedQosLevels">List of granted QOS Levels</param>
+        /// <param name="messageId">The message identifier associated with the subscription request.</param>
+        /// <param name="grantedQosLevels">The list of granted Quality of Service (QoS) levels for the subscribed topics.</param>
         public MqttMsgSubscribedEventArgs(ushort messageId, MqttQoSLevel[] grantedQosLevels)
         {
             MessageId = messageId;
