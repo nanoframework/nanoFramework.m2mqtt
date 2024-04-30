@@ -530,6 +530,8 @@ namespace nanoFramework.M2Mqtt.Messages
 
             // client identifier field size
             payloadSize += clientIdUtf8.Length + 2;
+            // will properties field size (not supported at this time, but the will properties count must be present)
+            payloadSize += WillFlag ? 2 : 0;
             // will topic field size
             payloadSize += (willTopicUtf8 != null) ? (willTopicUtf8.Length + 2) : 0;
             // will message field size
@@ -668,6 +670,12 @@ namespace nanoFramework.M2Mqtt.Messages
             buffer[index++] = (byte)(clientIdUtf8.Length & 0x00FF); // LSB
             Array.Copy(clientIdUtf8, 0, buffer, index, clientIdUtf8.Length);
             index += clientIdUtf8.Length;
+
+            // will properties (not supported but need to be present if will flag is set. See 3.1.3.2 Will Properties and [MQTT-3.1.2-9])
+            if (WillFlag)
+            {
+                index = EncodeVariableByte(0, buffer, index);
+            }
 
             // will topic
             if (WillFlag && (willTopicUtf8 != null))
