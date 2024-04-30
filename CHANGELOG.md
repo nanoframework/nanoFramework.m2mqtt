@@ -2,7 +2,19 @@
 
 ## [**Changes available only in 'Preview' NuGet packages:**](https://github.com/nanoframework/nanoFramework.m2mqtt/tree/HEAD)
 
-[Full Changelog](https://github.com/nanoframework/nanoFramework.m2mqtt/compare/v5.1.120...HEAD)
+[Full Changelog](https://github.com/nanoframework/nanoFramework.m2mqtt/compare/v5.1.123...HEAD)
+
+**Fixed bugs:**
+
+- Fix CONNECT with will flag [\#359](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/359)
+
+**Documentation and other chores:**
+
+- Update 1 NuGet dependencies [\#358](https://github.com/nanoframework/nanoFramework.m2mqtt/pull/358)
+
+## [v5.1.123](https://github.com/nanoframework/nanoFramework.m2mqtt/tree/v5.1.123) (2024-04-08)
+
+[Full Changelog](https://github.com/nanoframework/nanoFramework.m2mqtt/compare/v5.1.120...v5.1.123)
 
 **Documentation and other chores:**
 
