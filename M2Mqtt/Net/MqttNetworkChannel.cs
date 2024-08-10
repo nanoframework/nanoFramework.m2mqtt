@@ -320,14 +320,10 @@ namespace nanoFramework.M2Mqtt
             {
                 case MqttSslProtocols.None:
                     return SslProtocols.None;
-                case MqttSslProtocols.TLSv1_0:
-                    return SslProtocols.Tls;
-                case MqttSslProtocols.TLSv1_1:
-                    return SslProtocols.Tls11;
                 case MqttSslProtocols.TLSv1_2:
                     return SslProtocols.Tls12;
                 case MqttSslProtocols.TLSv1_3:
-                    throw new ArgumentException("TLS 1.3 is currently disabled, awaiting support from OS/Device Firmware.");
+                    return SslProtocols.Tls13;
                 default:
                     throw new ArgumentException("SSL/TLS protocol version not supported");
             }
