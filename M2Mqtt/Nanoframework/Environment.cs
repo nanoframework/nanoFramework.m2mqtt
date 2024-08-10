@@ -3,7 +3,9 @@ Contributors:
    .NET Foundation and Contributors - nanoFramework support
 */
 
-namespace System
+using System;
+
+namespace Mqtt
 {
     static class Environment
     {

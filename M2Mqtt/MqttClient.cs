@@ -890,7 +890,7 @@ namespace nanoFramework.M2Mqtt
                 }
 
                 // update last message sent ticks
-                _lastCommTime = Environment.TickCount;
+                _lastCommTime = Mqtt.Environment.TickCount;
             }
             catch (Exception e)
             {
@@ -933,7 +933,7 @@ namespace nanoFramework.M2Mqtt
                 }
 
                 // update last message sent ticks
-                _lastCommTime = Environment.TickCount;
+                _lastCommTime = Mqtt.Environment.TickCount;
             }
             catch (Exception e)
             {
@@ -1094,8 +1094,8 @@ namespace nanoFramework.M2Mqtt
                     State = state,
                     Flow = flow,
                     Attempt = 0,
-                    Timestamp = Environment.TickCount
-                };
+                    Timestamp = Mqtt.Environment.TickCount
+            };
 
                 lock (_inflightQueue)
                 {
@@ -1514,7 +1514,7 @@ namespace nanoFramework.M2Mqtt
 
                 if (_isRunning)
                 {
-                    delta = Environment.TickCount - _lastCommTime;
+                    delta = Mqtt.Environment.TickCount - _lastCommTime;
 
                     // if timeout exceeded ...
                     if (delta >= _keepAlivePeriod)
@@ -1746,14 +1746,14 @@ namespace nanoFramework.M2Mqtt
                                     break;
 
                                 case MqttMsgState.QueuedQos1:
-                                // [v3.1.1] SUBSCRIBE and UNSIBSCRIBE aren't "officially" QOS = 1
+                                // [v3.1.1] SUBSCRIBE and UNSUBSCRIBE aren't "officially" QOS = 1
                                 case MqttMsgState.SendSubscribe:
                                 case MqttMsgState.SendUnsubscribe:
 
                                     // QoS 1, PUBLISH or SUBSCRIBE/UNSUBSCRIBE message to send to broker, state change to wait PUBACK or SUBACK/UNSUBACK                                    
                                     if (msgContext.Flow == MqttMsgFlow.ToPublish)
                                     {
-                                        msgContext.Timestamp = Environment.TickCount;
+                                        msgContext.Timestamp = Mqtt.Environment.TickCount;
                                         msgContext.Attempt++;
                                         toEnqueue = true;
 
@@ -1766,7 +1766,7 @@ namespace nanoFramework.M2Mqtt
                                             {
                                                 lock (_waitingForAnswer)
                                                 {
-                                                    if (!_waitingForAnswer.Contains(msgContext.Message.MessageId))
+                                                    if (!_waitingForAnswer.Contains((int)msgContext.Message.MessageId))
                                                     {
                                                         toEnqueue = false;
                                                     }
@@ -1824,7 +1824,7 @@ namespace nanoFramework.M2Mqtt
                                     // QoS 2, PUBLISH message to send to broker, state change to wait PUBREC
                                     if (msgContext.Flow == MqttMsgFlow.ToPublish)
                                     {
-                                        msgContext.Timestamp = Environment.TickCount;
+                                        msgContext.Timestamp = Mqtt.Environment.TickCount;
                                         msgContext.Attempt++;
                                         toEnqueue = true;
 
@@ -1834,7 +1834,7 @@ namespace nanoFramework.M2Mqtt
                                         {
                                             lock (_waitingForAnswer)
                                             {
-                                                if (!_waitingForAnswer.Contains(msgContext.Message.MessageId))
+                                                if (!_waitingForAnswer.Contains(msgContext.Message.MessageId.ToString()))
                                                 {
                                                     toEnqueue = false;
                                                 }
@@ -1934,7 +1934,7 @@ namespace nanoFramework.M2Mqtt
                                         // current message not acknowledged, no PUBACK or SUBACK/UNSUBACK or not equal messageid 
                                         if (!acknowledge)
                                         {
-                                            delta = Environment.TickCount - msgContext.Timestamp;
+                                            delta = Mqtt.Environment.TickCount - msgContext.Timestamp;
                                             // check timeout for receiving PUBACK since PUBLISH was sent or
                                             // for receiving SUBACK since SUBSCRIBE was sent or
                                             // for receiving UNSUBACK since UNSUBSCRIBE was sent
@@ -2028,7 +2028,7 @@ namespace nanoFramework.M2Mqtt
                                                 };
 
                                                 msgContext.State = MqttMsgState.WaitForPubcomp;
-                                                msgContext.Timestamp = Environment.TickCount;
+                                                msgContext.Timestamp = Mqtt.Environment.TickCount;
                                                 msgContext.Attempt = 1;
 
                                                 Send(pubrel);
@@ -2047,7 +2047,7 @@ namespace nanoFramework.M2Mqtt
                                         // current message not acknowledged
                                         if (!acknowledge)
                                         {
-                                            delta = Environment.TickCount - msgContext.Timestamp;
+                                            delta = Mqtt.Environment.TickCount - msgContext.Timestamp;
                                             // check timeout for receiving PUBREC since PUBLISH was sent
                                             if (delta >= _settings.DelayOnRetry)
                                             {
@@ -2055,7 +2055,7 @@ namespace nanoFramework.M2Mqtt
                                                 if (msgContext.Attempt < _settings.AttemptsOnRetry)
                                                 {
                                                     msgContext.State = MqttMsgState.QueuedQos2;
-                                                    msgContext.Timestamp = Environment.TickCount;
+                                                    msgContext.Timestamp = Mqtt.Environment.TickCount;
 
                                                     // re-enqueue message
                                                     lock (_inflightQueue)
@@ -2246,7 +2246,7 @@ namespace nanoFramework.M2Mqtt
                                         // current message not acknowledged
                                         if (!acknowledge)
                                         {
-                                            delta = Environment.TickCount - msgContext.Timestamp;
+                                            delta = Mqtt.Environment.TickCount - msgContext.Timestamp;
                                             // check timeout for receiving PUBCOMP since PUBREL was sent
                                             if (delta >= _settings.DelayOnRetry)
                                             {
@@ -2313,7 +2313,7 @@ namespace nanoFramework.M2Mqtt
                                         };
 
                                         msgContext.State = MqttMsgState.WaitForPubcomp;
-                                        msgContext.Timestamp = Environment.TickCount;
+                                        msgContext.Timestamp = Mqtt.Environment.TickCount;
                                         msgContext.Attempt++;
                                         // retry ? set dup flag [v3.1.1] no needed
                                         if (ProtocolVersion == MqttProtocolVersion.Version_3_1)
