@@ -1691,7 +1691,7 @@ namespace nanoFramework.M2Mqtt
 
                         // set timeout tu MaxValue instead of Infinte (-1) to perform
                         // compare with calcultad current msgTimeout
-                        timeout = Int32.MaxValue;
+                        timeout = int.MaxValue;
 
                         // a message inflight could be re-enqueued but we have to
                         // analyze it only just one time for cycle
@@ -1721,52 +1721,122 @@ namespace nanoFramework.M2Mqtt
                             }
 
                             // get inflight message
-                            msgInflight = msgContext.Message;
-
-                            switch (msgContext.State)
+                            if (msgContext.Message != null)
                             {
-                                case MqttMsgState.QueuedQos0:
+                                msgInflight = msgContext.Message;
 
-                                    // QoS 0, PUBLISH message to send to broker, no state change, no acknowledge
-                                    if (msgContext.Flow == MqttMsgFlow.ToPublish)
-                                    {
-                                        Send(msgInflight);
-                                    }
-                                    // QoS 0, no need acknowledge
-                                    else if (msgContext.Flow == MqttMsgFlow.ToAcknowledge)
-                                    {
-                                        internalEvent = new MsgInternalEvent(msgInflight);
-                                        // notify published message from broker (no need acknowledged)
-                                        OnInternalEvent(internalEvent);
-                                    }
+                                switch (msgContext.State)
+                                {
+                                    case MqttMsgState.QueuedQos0:
+
+                                        // QoS 0, PUBLISH message to send to broker, no state change, no acknowledge
+                                        if (msgContext.Flow == MqttMsgFlow.ToPublish)
+                                        {
+                                            Send(msgInflight);
+                                        }
+                                        // QoS 0, no need acknowledge
+                                        else if (msgContext.Flow == MqttMsgFlow.ToAcknowledge)
+                                        {
+                                            internalEvent = new MsgInternalEvent(msgInflight);
+                                            // notify published message from broker (no need acknowledged)
+                                            OnInternalEvent(internalEvent);
+                                        }
 
 #if DEBUG
-                                    Debug.WriteLine($"processed {msgInflight}");
+                                        Debug.WriteLine($"processed {msgInflight}");
 #endif
-                                    break;
+                                        break;
 
-                                case MqttMsgState.QueuedQos1:
-                                // [v3.1.1] SUBSCRIBE and UNSUBSCRIBE aren't "officially" QOS = 1
-                                case MqttMsgState.SendSubscribe:
-                                case MqttMsgState.SendUnsubscribe:
+                                    case MqttMsgState.QueuedQos1:
+                                    // [v3.1.1] SUBSCRIBE and UNSUBSCRIBE aren't "officially" QOS = 1
+                                    case MqttMsgState.SendSubscribe:
+                                    case MqttMsgState.SendUnsubscribe:
 
-                                    // QoS 1, PUBLISH or SUBSCRIBE/UNSUBSCRIBE message to send to broker, state change to wait PUBACK or SUBACK/UNSUBACK                                    
-                                    if (msgContext.Flow == MqttMsgFlow.ToPublish)
-                                    {
-                                        msgContext.Timestamp = Mqtt.Environment.TickCount;
-                                        msgContext.Attempt++;
-                                        toEnqueue = true;
-
-                                        if (msgInflight.Type == MqttMessageType.Publish)
+                                        // QoS 1, PUBLISH or SUBSCRIBE/UNSUBSCRIBE message to send to broker, state change to wait PUBACK or SUBACK/UNSUBACK                                    
+                                        if (msgContext.Flow == MqttMsgFlow.ToPublish)
                                         {
-                                            // PUBLISH message to send, wait for PUBACK
-                                            msgContext.State = MqttMsgState.WaitForPuback;
-                                            // retry ? set dup flag [v3.1.1] only for PUBLISH message
-                                            if (msgContext.Attempt > 1)
+                                            msgContext.Timestamp = Mqtt.Environment.TickCount;
+                                            msgContext.Attempt++;
+                                            toEnqueue = true;
+
+                                            if (msgInflight.Type == MqttMessageType.Publish)
+                                            {
+                                                // PUBLISH message to send, wait for PUBACK
+                                                msgContext.State = MqttMsgState.WaitForPuback;
+                                                // retry ? set dup flag [v3.1.1] only for PUBLISH message
+                                                if (msgContext.Attempt > 1 && msgContext.Timestamp > 1)
+                                                {
+                                                    lock (_waitingForAnswer)
+                                                    {
+                                                        if (_waitingForAnswer != null && !_waitingForAnswer.Contains(msgContext.Message.MessageId.ToString()))
+                                                        {
+                                                            toEnqueue = false;
+                                                        }
+                                                    }
+
+                                                    msgInflight.DupFlag = true;
+                                                }
+                                            }
+                                            else if (msgInflight.Type == MqttMessageType.Subscribe)
+                                            {
+                                                // SUBSCRIBE message to send, wait for SUBACK
+                                                msgContext.State = MqttMsgState.WaitForSuback;
+                                            }
+                                            else if (msgInflight.Type == MqttMessageType.Unsubscribe)
+                                            {    // UNSUBSCRIBE message to send, wait for UNSUBACK
+                                                msgContext.State = MqttMsgState.WaitForUnsuback;
+                                            }
+
+                                            if (toEnqueue)
+                                            {
+                                                Send(msgInflight);
+                                                // re-enqueue message (I have to re-analyze for receiving PUBACK, SUBACK or UNSUBACK)
+                                                lock (_inflightQueue)
+                                                {
+                                                    _inflightQueue.Enqueue(msgContext);
+                                                }
+                                            }
+
+                                            // update timeout : minimum between delay (based on current message sent) or current timeout
+                                            timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
+                                        }
+                                        // QoS 1, PUBLISH message received from broker to acknowledge, send PUBACK
+                                        else if (msgContext.Flow == MqttMsgFlow.ToAcknowledge)
+                                        {
+                                            MqttMsgPuback puback = new MqttMsgPuback
+                                            {
+                                                MessageId = msgInflight.MessageId
+                                            };
+
+                                            Send(puback);
+
+                                            internalEvent = new MsgInternalEvent(msgInflight);
+                                            // notify published message from broker and acknowledged
+                                            OnInternalEvent(internalEvent);
+
+#if DEBUG
+                                            Debug.WriteLine($"processed {msgInflight}");
+#endif
+                                        }
+
+                                        break;
+
+                                    case MqttMsgState.QueuedQos2:
+
+                                        // QoS 2, PUBLISH message to send to broker, state change to wait PUBREC
+                                        if (msgContext.Flow == MqttMsgFlow.ToPublish)
+                                        {
+                                            msgContext.Timestamp = Mqtt.Environment.TickCount;
+                                            msgContext.Attempt++;
+                                            toEnqueue = true;
+
+                                            msgContext.State = MqttMsgState.WaitForPubrec;
+                                            // retry ? set dup flag
+                                            if (msgContext.Attempt > 1 && msgContext.Timestamp > 1)
                                             {
                                                 lock (_waitingForAnswer)
                                                 {
-                                                    if (!_waitingForAnswer.Contains((int)msgContext.Message.MessageId))
+                                                    if (!_waitingForAnswer.Contains(msgContext.Message.MessageId.ToString()))
                                                     {
                                                         toEnqueue = false;
                                                     }
@@ -1774,575 +1844,508 @@ namespace nanoFramework.M2Mqtt
 
                                                 msgInflight.DupFlag = true;
                                             }
-                                        }
-                                        else if (msgInflight.Type == MqttMessageType.Subscribe)
-                                        {
-                                            // SUBSCRIBE message to send, wait for SUBACK
-                                            msgContext.State = MqttMsgState.WaitForSuback;
-                                        }
-                                        else if (msgInflight.Type == MqttMessageType.Unsubscribe)
-                                        {    // UNSUBSCRIBE message to send, wait for UNSUBACK
-                                            msgContext.State = MqttMsgState.WaitForUnsuback;
-                                        }
 
-                                        if (toEnqueue)
-                                        {
-                                            Send(msgInflight);
-                                            // re-enqueue message (I have to re-analyze for receiving PUBACK, SUBACK or UNSUBACK)
-                                            lock (_inflightQueue)
+                                            if (toEnqueue)
                                             {
-                                                _inflightQueue.Enqueue(msgContext);
-                                            }
-                                        }
-
-                                        // update timeout : minimum between delay (based on current message sent) or current timeout
-                                        timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
-                                    }
-                                    // QoS 1, PUBLISH message received from broker to acknowledge, send PUBACK
-                                    else if (msgContext.Flow == MqttMsgFlow.ToAcknowledge)
-                                    {
-                                        MqttMsgPuback puback = new MqttMsgPuback
-                                        {
-                                            MessageId = msgInflight.MessageId
-                                        };
-
-                                        Send(puback);
-
-                                        internalEvent = new MsgInternalEvent(msgInflight);
-                                        // notify published message from broker and acknowledged
-                                        OnInternalEvent(internalEvent);
-
-#if DEBUG
-                                        Debug.WriteLine($"processed {msgInflight}");
-#endif
-                                    }
-
-                                    break;
-
-                                case MqttMsgState.QueuedQos2:
-
-                                    // QoS 2, PUBLISH message to send to broker, state change to wait PUBREC
-                                    if (msgContext.Flow == MqttMsgFlow.ToPublish)
-                                    {
-                                        msgContext.Timestamp = Mqtt.Environment.TickCount;
-                                        msgContext.Attempt++;
-                                        toEnqueue = true;
-
-                                        msgContext.State = MqttMsgState.WaitForPubrec;
-                                        // retry ? set dup flag
-                                        if (msgContext.Attempt > 1)
-                                        {
-                                            lock (_waitingForAnswer)
-                                            {
-                                                if (!_waitingForAnswer.Contains(msgContext.Message.MessageId.ToString()))
+                                                Send(msgInflight);
+                                                lock (_inflightQueue)
                                                 {
-                                                    toEnqueue = false;
+                                                    // re-enqueue message (I have to re-analyze for receiving PUBREC)
+                                                    _inflightQueue.Enqueue(msgContext);
                                                 }
                                             }
 
-                                            msgInflight.DupFlag = true;
+                                            // update timeout : minimum between delay (based on current message sent) or current timeout
+                                            timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
                                         }
-
-                                        if (toEnqueue)
+                                        // QoS 2, PUBLISH message received from broker to acknowledge, send PUBREC, state change to wait PUBREL
+                                        else if (msgContext.Flow == MqttMsgFlow.ToAcknowledge)
                                         {
-                                            Send(msgInflight);
+                                            MqttMsgPubrec pubrec = new MqttMsgPubrec
+                                            {
+                                                MessageId = msgInflight.MessageId
+                                            };
+
+                                            msgContext.State = MqttMsgState.WaitForPubrel;
+
+                                            Send(pubrec);
+
+                                            // re-enqueue message (I have to re-analyze for receiving PUBREL)
                                             lock (_inflightQueue)
                                             {
-                                                // re-enqueue message (I have to re-analyze for receiving PUBREC)
                                                 _inflightQueue.Enqueue(msgContext);
                                             }
                                         }
 
-                                        // update timeout : minimum between delay (based on current message sent) or current timeout
-                                        timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
-                                    }
-                                    // QoS 2, PUBLISH message received from broker to acknowledge, send PUBREC, state change to wait PUBREL
-                                    else if (msgContext.Flow == MqttMsgFlow.ToAcknowledge)
-                                    {
-                                        MqttMsgPubrec pubrec = new MqttMsgPubrec
+                                        break;
+
+                                    case MqttMsgState.WaitForPuback:
+                                    case MqttMsgState.WaitForSuback:
+                                    case MqttMsgState.WaitForUnsuback:
+
+                                        // QoS 1, waiting for PUBACK of a PUBLISH message sent or
+                                        //        waiting for SUBACK of a SUBSCRIBE message sent or
+                                        //        waiting for UNSUBACK of a UNSUBSCRIBE message sent or
+                                        if (msgContext.Flow == MqttMsgFlow.ToPublish)
                                         {
-                                            MessageId = msgInflight.MessageId
-                                        };
-
-                                        msgContext.State = MqttMsgState.WaitForPubrel;
-
-                                        Send(pubrec);
-
-                                        // re-enqueue message (I have to re-analyze for receiving PUBREL)
-                                        lock (_inflightQueue)
-                                        {
-                                            _inflightQueue.Enqueue(msgContext);
-                                        }
-                                    }
-
-                                    break;
-
-                                case MqttMsgState.WaitForPuback:
-                                case MqttMsgState.WaitForSuback:
-                                case MqttMsgState.WaitForUnsuback:
-
-                                    // QoS 1, waiting for PUBACK of a PUBLISH message sent or
-                                    //        waiting for SUBACK of a SUBSCRIBE message sent or
-                                    //        waiting for UNSUBACK of a UNSUBSCRIBE message sent or
-                                    if (msgContext.Flow == MqttMsgFlow.ToPublish)
-                                    {
-                                        acknowledge = false;
-                                        lock (_internalQueue)
-                                        {
-                                            if (_internalQueue.Count > 0)
+                                            acknowledge = false;
+                                            lock (_internalQueue)
                                             {
-                                                msgReceived = (MqttMsgBase)_internalQueue.Peek();
+                                                if (_internalQueue.Count > 0)
+                                                {
+                                                    msgReceived = (MqttMsgBase)_internalQueue.Peek();
+                                                }
                                             }
-                                        }
 
-                                        // it is a PUBACK message or a SUBACK/UNSUBACK message
-                                        if (msgReceived != null)
-                                        {
-                                            // PUBACK message or SUBACK/UNSUBACK message for the current message
-                                            if (((msgReceived.Type == MqttMessageType.PublishAck) && (msgInflight.Type == MqttMessageType.Publish) && (msgReceived.MessageId == msgInflight.MessageId)) ||
-                                                ((msgReceived.Type == MqttMessageType.SubscribeAck) && (msgInflight.Type == MqttMessageType.Subscribe) && (msgReceived.MessageId == msgInflight.MessageId)) ||
-                                                ((msgReceived.Type == MqttMessageType.UnsubscribeAck) && (msgInflight.Type == MqttMessageType.Unsubscribe) && (msgReceived.MessageId == msgInflight.MessageId)))
+                                            // it is a PUBACK message or a SUBACK/UNSUBACK message
+                                            if (msgReceived != null)
                                             {
-                                                acknowledge = true;
-                                                msgReceivedProcessed = true;
+                                                // PUBACK message or SUBACK/UNSUBACK message for the current message
+                                                if (((msgReceived.Type == MqttMessageType.PublishAck) && (msgInflight.Type == MqttMessageType.Publish) && (msgReceived.MessageId == msgInflight.MessageId)) ||
+                                                    ((msgReceived.Type == MqttMessageType.SubscribeAck) && (msgInflight.Type == MqttMessageType.Subscribe) && (msgReceived.MessageId == msgInflight.MessageId)) ||
+                                                    ((msgReceived.Type == MqttMessageType.UnsubscribeAck) && (msgInflight.Type == MqttMessageType.Unsubscribe) && (msgReceived.MessageId == msgInflight.MessageId)))
+                                                {
+                                                    acknowledge = true;
+                                                    msgReceivedProcessed = true;
 #if DEBUG
-                                                Debug.WriteLine($"dequeued {msgReceived}");
+                                                    Debug.WriteLine($"dequeued {msgReceived}");
 #endif
-                                                // if PUBACK received, confirm published with flag
-                                                if (msgReceived.Type == MqttMessageType.PublishAck)
-                                                    internalEvent = new MsgPublishedInternalEvent(msgReceived, true);
+                                                    // if PUBACK received, confirm published with flag
+                                                    if (msgReceived.Type == MqttMessageType.PublishAck)
+                                                        internalEvent = new MsgPublishedInternalEvent(msgReceived, true);
+                                                    else
+                                                        internalEvent = new MsgInternalEvent(msgReceived);
+
+                                                    // notify received acknowledge from broker of a published message or subscribe/unsubscribe message
+                                                    OnInternalEvent(internalEvent);
+
+                                                    // PUBACK received for PUBLISH message with QoS Level 1, remove from session state
+                                                    if ((msgInflight.Type == MqttMessageType.Publish) &&
+                                                        (_session != null) &&
+                                                        (_session.InflightMessages.Contains(msgContext.Key.ToString())))
+                                                    {
+                                                        _session.InflightMessages.Remove(msgContext.Key);
+                                                    }
+
+#if DEBUG
+                                                    Debug.WriteLine($"processed {msgInflight}");
+#endif
+                                                }
+                                            }
+
+                                            // current message not acknowledged, no PUBACK or SUBACK/UNSUBACK or not equal messageid 
+                                            if (!acknowledge)
+                                            {
+                                                delta = Mqtt.Environment.TickCount - msgContext.Timestamp;
+                                                // check timeout for receiving PUBACK since PUBLISH was sent or
+                                                // for receiving SUBACK since SUBSCRIBE was sent or
+                                                // for receiving UNSUBACK since UNSUBSCRIBE was sent
+                                                if (delta >= _settings.DelayOnRetry)
+                                                {
+                                                    // max retry not reached, resend
+                                                    if (msgContext.Attempt < _settings.AttemptsOnRetry && msgContext.Timestamp > 1)
+                                                    {
+                                                        msgContext.State = MqttMsgState.QueuedQos1;
+
+                                                        lock (_inflightQueue)
+                                                        {
+                                                            // re-enqueue message
+                                                            _inflightQueue.Enqueue(msgContext);
+                                                        }
+
+                                                        // update timeout (0 -> reanalyze queue immediately)
+                                                        timeout = 0;
+                                                    }
+                                                    else
+                                                    {
+                                                        // if PUBACK for a PUBLISH message not received after retries, raise event for not published
+                                                        if (msgInflight.Type == MqttMessageType.Publish)
+                                                        {
+                                                            // PUBACK not received in time, PUBLISH retries failed, need to remove from session inflight messages too
+                                                            if ((_session != null) &&
+                                                                (_session.InflightMessages.Contains(msgContext.Key.ToString())))
+                                                            {
+                                                                _session.InflightMessages.Remove(msgContext.Key);
+                                                            }
+
+                                                            internalEvent = new MsgPublishedInternalEvent(msgInflight, false);
+
+                                                            // notify not received acknowledge from broker and message not published
+                                                            OnInternalEvent(internalEvent);
+                                                        }
+                                                        // NOTE : not raise events for SUBACK or UNSUBACK not received
+                                                        //        for the user no event raised means subscribe/unsubscribe failed
+                                                    }
+                                                }
                                                 else
-                                                    internalEvent = new MsgInternalEvent(msgReceived);
-
-                                                // notify received acknowledge from broker of a published message or subscribe/unsubscribe message
-                                                OnInternalEvent(internalEvent);
-
-                                                // PUBACK received for PUBLISH message with QoS Level 1, remove from session state
-                                                if ((msgInflight.Type == MqttMessageType.Publish) &&
-                                                    (_session != null) &&
-                                                    (_session.InflightMessages.Contains(msgContext.Key)))
                                                 {
-                                                    _session.InflightMessages.Remove(msgContext.Key);
-                                                }
-
-#if DEBUG
-                                                Debug.WriteLine($"processed {msgInflight}");
-#endif
-                                            }
-                                        }
-
-                                        // current message not acknowledged, no PUBACK or SUBACK/UNSUBACK or not equal messageid 
-                                        if (!acknowledge)
-                                        {
-                                            delta = Mqtt.Environment.TickCount - msgContext.Timestamp;
-                                            // check timeout for receiving PUBACK since PUBLISH was sent or
-                                            // for receiving SUBACK since SUBSCRIBE was sent or
-                                            // for receiving UNSUBACK since UNSUBSCRIBE was sent
-                                            if (delta >= _settings.DelayOnRetry)
-                                            {
-                                                // max retry not reached, resend
-                                                if (msgContext.Attempt < _settings.AttemptsOnRetry)
-                                                {
-                                                    msgContext.State = MqttMsgState.QueuedQos1;
-
                                                     lock (_inflightQueue)
                                                     {
-                                                        // re-enqueue message
+                                                        // re-enqueue message (I have to re-analyze for receiving PUBACK, SUBACK or UNSUBACK)
                                                         _inflightQueue.Enqueue(msgContext);
                                                     }
 
-                                                    // update timeout (0 -> reanalyze queue immediately)
-                                                    timeout = 0;
+                                                    // update timeout
+                                                    int msgTimeout = (_settings.DelayOnRetry - delta);
+                                                    timeout = (msgTimeout < timeout) ? msgTimeout : timeout;
                                                 }
-                                                else
+                                            }
+                                        }
+                                        break;
+
+                                    case MqttMsgState.WaitForPubrec:
+
+                                        // QoS 2, waiting for PUBREC of a PUBLISH message sent
+                                        if (msgContext.Flow == MqttMsgFlow.ToPublish)
+                                        {
+                                            acknowledge = false;
+                                            lock (_internalQueue)
+                                            {
+                                                if (_internalQueue.Count > 0)
                                                 {
-                                                    // if PUBACK for a PUBLISH message not received after retries, raise event for not published
-                                                    if (msgInflight.Type == MqttMessageType.Publish)
+                                                    msgReceived = (MqttMsgBase)_internalQueue.Peek();
+                                                }
+                                            }
+
+                                            // it is a PUBREC message
+                                            if ((msgReceived != null) && (msgReceived.Type == MqttMessageType.PublishReceived))
+                                            {
+                                                // PUBREC message for the current PUBLISH message, send PUBREL, wait for PUBCOMP
+                                                if (msgReceived.MessageId == msgInflight.MessageId)
+                                                {
+                                                    lock (_internalQueue)
                                                     {
-                                                        // PUBACK not received in time, PUBLISH retries failed, need to remove from session inflight messages too
+                                                        // received message processed
+                                                        _internalQueue.Dequeue();
+                                                    }
+
+                                                    acknowledge = true;
+                                                    msgReceivedProcessed = true;
+#if DEBUG
+                                                    Debug.WriteLine($"dequeued {msgReceived}");
+#endif
+                                                    MqttMsgPubrel pubrel = new MqttMsgPubrel
+                                                    {
+                                                        MessageId = msgInflight.MessageId
+                                                    };
+
+                                                    msgContext.State = MqttMsgState.WaitForPubcomp;
+                                                    msgContext.Timestamp = Mqtt.Environment.TickCount;
+                                                    msgContext.Attempt = 1;
+
+                                                    Send(pubrel);
+
+                                                    // update timeout : minimum between delay (based on current message sent) or current timeout
+                                                    timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
+
+                                                    // re-enqueue message
+                                                    lock (_inflightQueue)
+                                                    {
+                                                        _inflightQueue.Enqueue(msgContext);
+                                                    }
+                                                }
+                                            }
+
+                                            // current message not acknowledged
+                                            if (!acknowledge)
+                                            {
+                                                delta = Mqtt.Environment.TickCount - msgContext.Timestamp;
+                                                // check timeout for receiving PUBREC since PUBLISH was sent
+                                                if (delta >= _settings.DelayOnRetry)
+                                                {
+                                                    // max retry not reached, resend
+                                                    if (msgContext.Attempt < _settings.AttemptsOnRetry && msgContext.Timestamp > 1)
+                                                    {
+                                                        msgContext.State = MqttMsgState.QueuedQos2;
+                                                        msgContext.Timestamp = Mqtt.Environment.TickCount;
+
+                                                        // re-enqueue message
+                                                        lock (_inflightQueue)
+                                                        {
+                                                            _inflightQueue.Enqueue(msgContext);
+                                                        }
+
+                                                        // update timeout (0 -> reanalyze queue immediately)
+                                                        timeout = 0;
+                                                    }
+                                                    else
+                                                    {
+                                                        // PUBREC not received in time, PUBLISH retries failed, need to remove from session inflight messages too
                                                         if ((_session != null) &&
-                                                            (_session.InflightMessages.Contains(msgContext.Key)))
+                                                            (_session.InflightMessages.Contains(msgContext.Key.ToString())))
                                                         {
                                                             _session.InflightMessages.Remove(msgContext.Key);
                                                         }
 
+                                                        // if PUBREC for a PUBLISH message not received after retries, raise event for not published
                                                         internalEvent = new MsgPublishedInternalEvent(msgInflight, false);
-
                                                         // notify not received acknowledge from broker and message not published
                                                         OnInternalEvent(internalEvent);
                                                     }
-                                                    // NOTE : not raise events for SUBACK or UNSUBACK not received
-                                                    //        for the user no event raised means subscribe/unsubscribe failed
                                                 }
-                                            }
-                                            else
-                                            {
-                                                lock (_inflightQueue)
+                                                else
                                                 {
-                                                    // re-enqueue message (I have to re-analyze for receiving PUBACK, SUBACK or UNSUBACK)
-                                                    _inflightQueue.Enqueue(msgContext);
-                                                }
-
-                                                // update timeout
-                                                int msgTimeout = (_settings.DelayOnRetry - delta);
-                                                timeout = (msgTimeout < timeout) ? msgTimeout : timeout;
-                                            }
-                                        }
-                                    }
-                                    break;
-
-                                case MqttMsgState.WaitForPubrec:
-
-                                    // QoS 2, waiting for PUBREC of a PUBLISH message sent
-                                    if (msgContext.Flow == MqttMsgFlow.ToPublish)
-                                    {
-                                        acknowledge = false;
-                                        lock (_internalQueue)
-                                        {
-                                            if (_internalQueue.Count > 0)
-                                            {
-                                                msgReceived = (MqttMsgBase)_internalQueue.Peek();
-                                            }
-                                        }
-
-                                        // it is a PUBREC message
-                                        if ((msgReceived != null) && (msgReceived.Type == MqttMessageType.PublishReceived))
-                                        {
-                                            // PUBREC message for the current PUBLISH message, send PUBREL, wait for PUBCOMP
-                                            if (msgReceived.MessageId == msgInflight.MessageId)
-                                            {
-                                                lock (_internalQueue)
-                                                {
-                                                    // received message processed
-                                                    _internalQueue.Dequeue();
-                                                }
-
-                                                acknowledge = true;
-                                                msgReceivedProcessed = true;
-#if DEBUG
-                                                Debug.WriteLine($"dequeued {msgReceived}");
-#endif
-                                                MqttMsgPubrel pubrel = new MqttMsgPubrel
-                                                {
-                                                    MessageId = msgInflight.MessageId
-                                                };
-
-                                                msgContext.State = MqttMsgState.WaitForPubcomp;
-                                                msgContext.Timestamp = Mqtt.Environment.TickCount;
-                                                msgContext.Attempt = 1;
-
-                                                Send(pubrel);
-
-                                                // update timeout : minimum between delay (based on current message sent) or current timeout
-                                                timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
-
-                                                // re-enqueue message
-                                                lock (_inflightQueue)
-                                                {
-                                                    _inflightQueue.Enqueue(msgContext);
-                                                }
-                                            }
-                                        }
-
-                                        // current message not acknowledged
-                                        if (!acknowledge)
-                                        {
-                                            delta = Mqtt.Environment.TickCount - msgContext.Timestamp;
-                                            // check timeout for receiving PUBREC since PUBLISH was sent
-                                            if (delta >= _settings.DelayOnRetry)
-                                            {
-                                                // max retry not reached, resend
-                                                if (msgContext.Attempt < _settings.AttemptsOnRetry)
-                                                {
-                                                    msgContext.State = MqttMsgState.QueuedQos2;
-                                                    msgContext.Timestamp = Mqtt.Environment.TickCount;
-
                                                     // re-enqueue message
                                                     lock (_inflightQueue)
                                                     {
                                                         _inflightQueue.Enqueue(msgContext);
                                                     }
 
-                                                    // update timeout (0 -> reanalyze queue immediately)
-                                                    timeout = 0;
+                                                    // update timeout
+                                                    int msgTimeout = (_settings.DelayOnRetry - delta);
+                                                    timeout = (msgTimeout < timeout) ? msgTimeout : timeout;
                                                 }
-                                                else
+                                            }
+                                        }
+                                        break;
+
+                                    case MqttMsgState.WaitForPubrel:
+
+                                        // QoS 2, waiting for PUBREL of a PUBREC message sent
+                                        if (msgContext.Flow == MqttMsgFlow.ToAcknowledge)
+                                        {
+                                            lock (_internalQueue)
+                                            {
+                                                if (_internalQueue.Count > 0)
                                                 {
-                                                    // PUBREC not received in time, PUBLISH retries failed, need to remove from session inflight messages too
-                                                    if ((_session != null) &&
-                                                        (_session.InflightMessages.Contains(msgContext.Key)))
+                                                    msgReceived = (MqttMsgBase)_internalQueue.Peek();
+                                                }
+                                            }
+
+                                            // it is a PUBREL message
+                                            if ((msgReceived != null) && (msgReceived.Type == MqttMessageType.PublishRelease))
+                                            {
+                                                // PUBREL message for the current message, send PUBCOMP
+                                                if (msgReceived.MessageId == msgInflight.MessageId)
+                                                {
+                                                    lock (_internalQueue)
+                                                    {
+                                                        // received message processed
+                                                        _internalQueue.Dequeue();
+                                                    }
+
+                                                    msgReceivedProcessed = true;
+#if DEBUG
+                                                    Debug.WriteLine($"dequeued {msgReceived}");
+#endif
+                                                    MqttMsgPubcomp pubcomp = new MqttMsgPubcomp
+                                                    {
+                                                        MessageId = msgInflight.MessageId
+                                                    };
+
+                                                    Send(pubcomp);
+
+                                                    internalEvent = new MsgInternalEvent(msgInflight);
+                                                    // notify published message from broker and acknowledged
+                                                    OnInternalEvent(internalEvent);
+
+                                                    // PUBREL received (and PUBCOMP sent) for PUBLISH message with QoS Level 2, remove from session state
+                                                    if ((msgInflight.Type == MqttMessageType.Publish) &&
+                                                        (_session != null) &&
+                                                        (_session.InflightMessages.Contains(msgContext.Key.ToString())))
                                                     {
                                                         _session.InflightMessages.Remove(msgContext.Key);
                                                     }
 
-                                                    // if PUBREC for a PUBLISH message not received after retries, raise event for not published
-                                                    internalEvent = new MsgPublishedInternalEvent(msgInflight, false);
-                                                    // notify not received acknowledge from broker and message not published
+#if DEBUG
+                                                    Debug.WriteLine($"processed {msgInflight}");
+#endif
+                                                }
+                                                else
+                                                {
+                                                    lock (_inflightQueue)
+                                                    {
+                                                        // re-enqueue message
+                                                        _inflightQueue.Enqueue(msgContext);
+                                                    }
+                                                }
+                                            }
+                                            else
+                                            {
+                                                lock (_inflightQueue)
+                                                {
+                                                    // re-enqueue message
+                                                    _inflightQueue.Enqueue(msgContext);
+                                                }
+                                            }
+                                        }
+                                        break;
+
+                                    case MqttMsgState.WaitForPubcomp:
+
+                                        // QoS 2, waiting for PUBCOMP of a PUBREL message sent
+                                        if (msgContext.Flow == MqttMsgFlow.ToPublish)
+                                        {
+                                            acknowledge = false;
+                                            lock (_internalQueue)
+                                            {
+                                                if (_internalQueue.Count > 0)
+                                                {
+                                                    msgReceived = (MqttMsgBase)_internalQueue.Peek();
+                                                }
+                                            }
+
+                                            // it is a PUBCOMP message
+                                            if ((msgReceived != null) && (msgReceived.Type == MqttMessageType.PublishComplete))
+                                            {
+                                                // PUBCOMP message for the current message
+                                                if (msgReceived.MessageId == msgInflight.MessageId)
+                                                {
+                                                    lock (_internalQueue)
+                                                    {
+                                                        // received message processed
+                                                        _internalQueue.Dequeue();
+                                                    }
+
+                                                    acknowledge = true;
+                                                    msgReceivedProcessed = true;
+#if DEBUG
+                                                    Debug.WriteLine($"dequeued {msgReceived}");
+#endif
+                                                    internalEvent = new MsgPublishedInternalEvent(msgReceived, true);
+                                                    // notify received acknowledge from broker of a published message
                                                     OnInternalEvent(internalEvent);
-                                                }
-                                            }
-                                            else
-                                            {
-                                                // re-enqueue message
-                                                lock (_inflightQueue)
-                                                {
-                                                    _inflightQueue.Enqueue(msgContext);
-                                                }
 
-                                                // update timeout
-                                                int msgTimeout = (_settings.DelayOnRetry - delta);
-                                                timeout = (msgTimeout < timeout) ? msgTimeout : timeout;
-                                            }
-                                        }
-                                    }
-                                    break;
-
-                                case MqttMsgState.WaitForPubrel:
-
-                                    // QoS 2, waiting for PUBREL of a PUBREC message sent
-                                    if (msgContext.Flow == MqttMsgFlow.ToAcknowledge)
-                                    {
-                                        lock (_internalQueue)
-                                        {
-                                            if (_internalQueue.Count > 0)
-                                            {
-                                                msgReceived = (MqttMsgBase)_internalQueue.Peek();
-                                            }
-                                        }
-
-                                        // it is a PUBREL message
-                                        if ((msgReceived != null) && (msgReceived.Type == MqttMessageType.PublishRelease))
-                                        {
-                                            // PUBREL message for the current message, send PUBCOMP
-                                            if (msgReceived.MessageId == msgInflight.MessageId)
-                                            {
-                                                lock (_internalQueue)
-                                                {
-                                                    // received message processed
-                                                    _internalQueue.Dequeue();
-                                                }
-
-                                                msgReceivedProcessed = true;
-#if DEBUG
-                                                Debug.WriteLine($"dequeued {msgReceived}");
-#endif
-                                                MqttMsgPubcomp pubcomp = new MqttMsgPubcomp
-                                                {
-                                                    MessageId = msgInflight.MessageId
-                                                };
-
-                                                Send(pubcomp);
-
-                                                internalEvent = new MsgInternalEvent(msgInflight);
-                                                // notify published message from broker and acknowledged
-                                                OnInternalEvent(internalEvent);
-
-                                                // PUBREL received (and PUBCOMP sent) for PUBLISH message with QoS Level 2, remove from session state
-                                                if ((msgInflight.Type == MqttMessageType.Publish) &&
-                                                    (_session != null) &&
-                                                    (_session.InflightMessages.Contains(msgContext.Key)))
-                                                {
-                                                    _session.InflightMessages.Remove(msgContext.Key);
-                                                }
+                                                    // PUBCOMP received for PUBLISH message with QoS Level 2, remove from session state
+                                                    if ((msgInflight.Type == MqttMessageType.Publish) &&
+                                                        (_session != null) &&
+                                                        (_session.InflightMessages.Contains(msgContext.Key.ToString())))
+                                                    {
+                                                        _session.InflightMessages.Remove(msgContext.Key);
+                                                    }
 
 #if DEBUG
-                                                Debug.WriteLine($"processed {msgInflight}");
+                                                    Debug.WriteLine($"processed {msgInflight}");
 #endif
-                                            }
-                                            else
-                                            {
-                                                lock (_inflightQueue)
-                                                {
-                                                    // re-enqueue message
-                                                    _inflightQueue.Enqueue(msgContext);
                                                 }
                                             }
-                                        }
-                                        else
-                                        {
-                                            lock (_inflightQueue)
+                                            // it is a PUBREC message
+                                            else if ((msgReceived != null) && (msgReceived.Type == MqttMessageType.PublishReceived))
                                             {
-                                                // re-enqueue message
-                                                _inflightQueue.Enqueue(msgContext);
-                                            }
-                                        }
-                                    }
-                                    break;
-
-                                case MqttMsgState.WaitForPubcomp:
-
-                                    // QoS 2, waiting for PUBCOMP of a PUBREL message sent
-                                    if (msgContext.Flow == MqttMsgFlow.ToPublish)
-                                    {
-                                        acknowledge = false;
-                                        lock (_internalQueue)
-                                        {
-                                            if (_internalQueue.Count > 0)
-                                            {
-                                                msgReceived = (MqttMsgBase)_internalQueue.Peek();
-                                            }
-                                        }
-
-                                        // it is a PUBCOMP message
-                                        if ((msgReceived != null) && (msgReceived.Type == MqttMessageType.PublishComplete))
-                                        {
-                                            // PUBCOMP message for the current message
-                                            if (msgReceived.MessageId == msgInflight.MessageId)
-                                            {
-                                                lock (_internalQueue)
+                                                // another PUBREC message for the current message due to a retransmitted PUBLISH
+                                                // I'm in waiting for PUBCOMP, so I can discard this PUBREC
+                                                if (msgReceived.MessageId == msgInflight.MessageId)
                                                 {
-                                                    // received message processed
-                                                    _internalQueue.Dequeue();
-                                                }
+                                                    lock (_internalQueue)
+                                                    {
+                                                        // received message processed
+                                                        _internalQueue.Dequeue();
+                                                    }
 
-                                                acknowledge = true;
-                                                msgReceivedProcessed = true;
+                                                    acknowledge = true;
+                                                    msgReceivedProcessed = true;
 #if DEBUG
-                                                Debug.WriteLine($"dequeued {msgReceived}");
+                                                    Debug.WriteLine($"dequeued {msgReceived}");
 #endif
-                                                internalEvent = new MsgPublishedInternalEvent(msgReceived, true);
-                                                // notify received acknowledge from broker of a published message
-                                                OnInternalEvent(internalEvent);
-
-                                                // PUBCOMP received for PUBLISH message with QoS Level 2, remove from session state
-                                                if ((msgInflight.Type == MqttMessageType.Publish) &&
-                                                    (_session != null) &&
-                                                    (_session.InflightMessages.Contains(msgContext.Key)))
-                                                {
-                                                    _session.InflightMessages.Remove(msgContext.Key);
-                                                }
-
-#if DEBUG
-                                                Debug.WriteLine($"processed {msgInflight}");
-#endif
-                                            }
-                                        }
-                                        // it is a PUBREC message
-                                        else if ((msgReceived != null) && (msgReceived.Type == MqttMessageType.PublishReceived))
-                                        {
-                                            // another PUBREC message for the current message due to a retransmitted PUBLISH
-                                            // I'm in waiting for PUBCOMP, so I can discard this PUBREC
-                                            if (msgReceived.MessageId == msgInflight.MessageId)
-                                            {
-                                                lock (_internalQueue)
-                                                {
-                                                    // received message processed
-                                                    _internalQueue.Dequeue();
-                                                }
-
-                                                acknowledge = true;
-                                                msgReceivedProcessed = true;
-#if DEBUG
-                                                Debug.WriteLine($"dequeued {msgReceived}");
-#endif
-                                                lock (_inflightQueue)
-                                                {
-                                                    // re-enqueue message
-                                                    _inflightQueue.Enqueue(msgContext);
+                                                    lock (_inflightQueue)
+                                                    {
+                                                        // re-enqueue message
+                                                        _inflightQueue.Enqueue(msgContext);
+                                                    }
                                                 }
                                             }
-                                        }
 
-                                        // current message not acknowledged
-                                        if (!acknowledge)
-                                        {
-                                            delta = Mqtt.Environment.TickCount - msgContext.Timestamp;
-                                            // check timeout for receiving PUBCOMP since PUBREL was sent
-                                            if (delta >= _settings.DelayOnRetry)
+                                            // current message not acknowledged
+                                            if (!acknowledge)
                                             {
-                                                // max retry not reached, resend
-                                                if (msgContext.Attempt < _settings.AttemptsOnRetry)
+                                                delta = Mqtt.Environment.TickCount - msgContext.Timestamp;
+                                                // check timeout for receiving PUBCOMP since PUBREL was sent
+                                                if (delta >= _settings.DelayOnRetry)
                                                 {
-                                                    msgContext.State = MqttMsgState.SendPubrel;
+                                                    // max retry not reached, resend
+                                                    if (msgContext.Attempt < _settings.AttemptsOnRetry && msgContext.Timestamp > 1)
+                                                    {
+                                                        msgContext.State = MqttMsgState.SendPubrel;
+                                                        lock (_inflightQueue)
+                                                        {
+                                                            // re-enqueue message
+                                                            _inflightQueue.Enqueue(msgContext);
+                                                        }
+
+                                                        // update timeout (0 -> reanalyze queue immediately)
+                                                        timeout = 0;
+                                                    }
+                                                    else
+                                                    {
+                                                        // PUBCOMP not received, PUBREL retries failed, need to remove from session inflight messages too
+                                                        if ((_session != null) &&
+                                                            (_session.InflightMessages.Contains(msgContext.Key.ToString())))
+                                                        {
+                                                            _session.InflightMessages.Remove(msgContext.Key);
+#if DEBUG
+                                                            Debug.WriteLine($"session remove {msgContext.Key}");
+#endif
+                                                        }
+
+                                                        // if PUBCOMP for a PUBLISH message not received after retries, raise event for not published
+                                                        internalEvent = new MsgPublishedInternalEvent(msgInflight, false);
+                                                        // notify not received acknowledge from broker and message not published
+                                                        OnInternalEvent(internalEvent);
+                                                    }
+                                                }
+                                                else
+                                                {
                                                     lock (_inflightQueue)
                                                     {
                                                         // re-enqueue message
                                                         _inflightQueue.Enqueue(msgContext);
                                                     }
 
-                                                    // update timeout (0 -> reanalyze queue immediately)
-                                                    timeout = 0;
-                                                }
-                                                else
-                                                {
-                                                    // PUBCOMP not received, PUBREL retries failed, need to remove from session inflight messages too
-                                                    if ((_session != null) &&
-                                                        (_session.InflightMessages.Contains(msgContext.Key)))
-                                                    {
-                                                        _session.InflightMessages.Remove(msgContext.Key);
-#if DEBUG
-                                                        Debug.WriteLine($"session remove {msgContext.Key}");
-#endif
-                                                    }
-
-                                                    // if PUBCOMP for a PUBLISH message not received after retries, raise event for not published
-                                                    internalEvent = new MsgPublishedInternalEvent(msgInflight, false);
-                                                    // notify not received acknowledge from broker and message not published
-                                                    OnInternalEvent(internalEvent);
+                                                    // update timeout
+                                                    int msgTimeout = (_settings.DelayOnRetry - delta);
+                                                    timeout = (msgTimeout < timeout) ? msgTimeout : timeout;
                                                 }
                                             }
-                                            else
+                                        }
+                                        break;
+
+                                    case MqttMsgState.SendPubrec:
+
+                                        // TODO : impossible ? --> QueuedQos2 ToAcknowledge
+                                        break;
+
+                                    case MqttMsgState.SendPubrel:
+
+                                        // QoS 2, PUBREL message to send to broker, state change to wait PUBCOMP
+                                        if (msgContext.Flow == MqttMsgFlow.ToPublish)
+                                        {
+                                            MqttMsgPubrel pubrel = new MqttMsgPubrel
                                             {
-                                                lock (_inflightQueue)
-                                                {
-                                                    // re-enqueue message
-                                                    _inflightQueue.Enqueue(msgContext);
-                                                }
+                                                MessageId = msgInflight.MessageId
+                                            };
 
-                                                // update timeout
-                                                int msgTimeout = (_settings.DelayOnRetry - delta);
-                                                timeout = (msgTimeout < timeout) ? msgTimeout : timeout;
+                                            msgContext.State = MqttMsgState.WaitForPubcomp;
+                                            msgContext.Timestamp = Mqtt.Environment.TickCount;
+                                            msgContext.Attempt++;
+                                            // retry ? set dup flag [v3.1.1] no needed
+                                            if (ProtocolVersion == MqttProtocolVersion.Version_3_1)
+                                            {
+                                                if (msgContext.Attempt > 1 && msgContext.Timestamp > 1)
+                                                    pubrel.DupFlag = true;
+                                            }
+
+                                            Send(pubrel);
+
+                                            // update timeout : minimum between delay (based on current message sent) or current timeout
+                                            timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
+
+                                            lock (_inflightQueue)
+                                            {
+                                                // re-enqueue message
+                                                _inflightQueue.Enqueue(msgContext);
                                             }
                                         }
-                                    }
-                                    break;
+                                        break;
 
-                                case MqttMsgState.SendPubrec:
-
-                                    // TODO : impossible ? --> QueuedQos2 ToAcknowledge
-                                    break;
-
-                                case MqttMsgState.SendPubrel:
-
-                                    // QoS 2, PUBREL message to send to broker, state change to wait PUBCOMP
-                                    if (msgContext.Flow == MqttMsgFlow.ToPublish)
-                                    {
-                                        MqttMsgPubrel pubrel = new MqttMsgPubrel
-                                        {
-                                            MessageId = msgInflight.MessageId
-                                        };
-
-                                        msgContext.State = MqttMsgState.WaitForPubcomp;
-                                        msgContext.Timestamp = Mqtt.Environment.TickCount;
-                                        msgContext.Attempt++;
-                                        // retry ? set dup flag [v3.1.1] no needed
-                                        if (ProtocolVersion == MqttProtocolVersion.Version_3_1)
-                                        {
-                                            if (msgContext.Attempt > 1)
-                                                pubrel.DupFlag = true;
-                                        }
-
-                                        Send(pubrel);
-
-                                        // update timeout : minimum between delay (based on current message sent) or current timeout
-                                        timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
-
-                                        lock (_inflightQueue)
-                                        {
-                                            // re-enqueue message
-                                            _inflightQueue.Enqueue(msgContext);
-                                        }
-                                    }
-                                    break;
-
-                                case MqttMsgState.SendPubcomp:
-                                    // TODO : impossible ?
-                                    break;
-                                case MqttMsgState.SendPuback:
-                                    // TODO : impossible ? --> QueuedQos1 ToAcknowledge
-                                    break;
-                                default:
-                                    break;
+                                    case MqttMsgState.SendPubcomp:
+                                        // TODO : impossible ?
+                                        break;
+                                    case MqttMsgState.SendPuback:
+                                        // TODO : impossible ? --> QueuedQos1 ToAcknowledge
+                                        break;
+                                    default:
+                                        break;
+                                }
                             }
                         }
 
