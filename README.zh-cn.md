@@ -243,6 +243,6 @@ client.Connect(clientId);
 该项目采用了贡献者公约定义的行为准则，以阐明我们社区中的预期行为。
 有关详细信息，请参阅 [.NET Foundation 行为准则](https://dotnetfoundation.org/code-of-conduct)。
 
-### .NET Foundation
+## .NET Foundation
 
 该项目由 [.NET Foundation](https://dotnetfoundation.org) 支持.
