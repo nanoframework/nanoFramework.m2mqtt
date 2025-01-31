@@ -33,6 +33,12 @@ resources:
       name: nanoframework/nf-tools
       endpoint: nanoframework
 
+variables:
+  - name: DOTNET_NOLOGO
+    value: true  
+  - name: nugetPackageName
+    value: 'nanoFramework.M2Mqtt'
+    
 jobs:
 
 ##############################
@@ -50,16 +56,12 @@ jobs:
 
   variables:
     - group: sign-client-credentials
-    - name: DOTNET_NOLOGO
-      value: true  
     - name: buildPlatform
       value: 'Any CPU'  
     - name: buildConfiguration
       value: 'Release'
     - name: solution
       value: 'nanoFramework.M2Mqtt.sln'
-    - name: nugetPackageName
-      value: 'nanoFramework.M2Mqtt'
 
   steps:
 
@@ -135,7 +137,7 @@ jobs:
   # update dependents
   - template: azure-pipelines-templates/update-dependents.yml@templates  
     parameters:
-      waitBeforeUpdate: false
+      packageName: '$(nugetPackageName)'
       repositoriesToUpdate: |
         nanoFramework.Aws.IotCore.Devices
         nanoFramework.Azure.Devices
