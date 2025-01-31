@@ -33,23 +33,35 @@ resources:
       name: nanoframework/nf-tools
       endpoint: nanoframework
 
-pool:
-  vmImage: 'windows-latest'
+jobs:
 
-variables:
-  - group: sign-client-credentials
-  - name: DOTNET_NOLOGO
-    value: true  
-  - name: buildPlatform
-    value: 'Any CPU'  
-  - name: buildConfiguration
-    value: 'Release'
-  - name: solution
-    value: 'nanoFramework.M2Mqtt.sln'
-  - name: nugetPackageName
-    value: 'nanoFramework.M2Mqtt'
+##############################
+- job: Build_Library
+  condition: >-
+    and(
+      not(startsWith(variables['Build.SourceBranch'], 'refs/tags/v')),
+      or(
+        eq(variables['UPDATE_DEPENDENTS'], 'false'),
+        eq(variables['StartReleaseCandidate'], 'true')
+      )
+    )
+  pool:
+    vmImage: 'windows-latest'
 
-steps:
+  variables:
+    - group: sign-client-credentials
+    - name: DOTNET_NOLOGO
+      value: true  
+    - name: buildPlatform
+      value: 'Any CPU'  
+    - name: buildConfiguration
+      value: 'Release'
+    - name: solution
+      value: 'nanoFramework.M2Mqtt.sln'
+    - name: nugetPackageName
+      value: 'nanoFramework.M2Mqtt'
+
+  steps:
 
   # build step only
   - template: azure-pipelines-templates/class-lib-build-only.yml@templates
@@ -94,18 +106,61 @@ steps:
       isPreRelease: false
       addChangeLog: false
 
+##############################
+- job: Update_Dependents
+  condition: >-
+    or(
+      and(
+        startsWith(variables['Build.SourceBranch'], 'refs/tags/v'),
+        eq(variables['StartReleaseCandidate'], 'false')
+      ),
+      and(
+        contains(variables['getCommitMessage.COMMIT_MESSAGE'], '***UPDATE_DEPENDENTS***'),
+        eq(variables['StartReleaseCandidate'], 'false')
+      ),
+      eq(variables['UPDATE_DEPENDENTS'], 'true')
+    )
+
+  pool:
+    vmImage: 'windows-latest'
+
+  variables:
+    DOTNET_NOLOGO: true
+
+  steps:
+  # need this here in order to persist GitHub credentials 
+  - checkout: self
+    fetchDepth: 1
 
   # update dependents
   - template: azure-pipelines-templates/update-dependents.yml@templates  
     parameters:
-      ${{ if eq(variables['UPDATE_DEPENDENTS'], 'false') }}:
-        waitBeforeUpdate: false
-      ${{ else }}:
-        waitBeforeUpdate: true
+      waitBeforeUpdate: false
       repositoriesToUpdate: |
         nanoFramework.Aws.IotCore.Devices
         nanoFramework.Azure.Devices
 
+##################################
+# report build failure to Discord
+- job: Report_Build_Failure
+  
+  dependsOn:
+  - Build_Library
+  - Update_Dependents
+  condition: >-
+    or(
+      failed('Build_Library'),
+      failed('Update_Dependents')
+    )
+
+  pool:
+    vmImage: 'windows-latest'
+
+  steps:
+  
+  - checkout: self
+
+  # step from template @ nf-tools repo
   # report error
   - template: azure-pipelines-templates/discord-webhook-task.yml@templates  
     parameters:
