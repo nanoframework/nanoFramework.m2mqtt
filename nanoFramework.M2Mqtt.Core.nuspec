@@ -18,7 +18,7 @@
     <description>M2Mqtt is a MQTT client available for .NET nanoFramework for M2M communication.</description>
     <tags>m2m mqtt queue messaging internetofthings iot cloud netmf embedded micro netduino micro-framework hardware gadgeteer</tags>
     <dependencies>
-      <dependency id="nanoFramework.CoreLibrary" version="1.17.7" />
+      <dependency id="nanoFramework.CoreLibrary" version="1.17.11" />
     </dependencies>
   </metadata>
   <files>
