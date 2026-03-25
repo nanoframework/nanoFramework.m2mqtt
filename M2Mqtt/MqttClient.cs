@@ -1461,8 +1461,10 @@ namespace nanoFramework.M2Mqtt
                     // zero bytes read, peer gracefully closed socket
                     else
                     {
+                        _exReceiving = new MqttCommunicationException();
                         // wake up thread that will notify connection is closing
                         OnConnectionClosing();
+                        _syncEndReceiving.Set();
                     }
                 }
                 catch (Exception e)
@@ -1491,6 +1493,7 @@ namespace nanoFramework.M2Mqtt
                     {
                         // wake up thread that will notify connection is closing
                         OnConnectionClosing();
+                        _syncEndReceiving.Set();
                     }
                 }
             }

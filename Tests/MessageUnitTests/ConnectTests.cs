@@ -196,5 +196,30 @@ namespace MessageUnitTests
             Assert.AreEqual(KeepAlivePeriod, connect.KeepAlivePeriod);
             Assert.AreEqual(true, connect.CleanSession);
         }
+
+        [TestMethod]
+        public void ConnectWillEncodeTestv311()
+        {
+            // Arrange
+            MqttMsgConnect connect = new("Will-message-test", "homeassistant", "mindfree", true, MqttQoSLevel.ExactlyOnce, true, "willtest/off", "offline", true, 1, MqttProtocolVersion.Version_3_1_1);
+            byte[] correctEncoded = new byte[]
+            {
+                16, 77,                                                                          // fixed header: CONNECT, remaining length 77
+                0, 4, 77, 81, 84, 84,                                                            // protocol name: "MQTT"
+                4,                                                                               // protocol level: 4 (v3.1.1)
+                246,                                                                             // connect flags: username|password|willRetain|willQoS2|willFlag|cleanSession
+                0, 1,                                                                            // keep alive: 1s
+                0, 17, 87, 105, 108, 108, 45, 109, 101, 115, 115, 97, 103, 101, 45, 116, 101, 115, 116, // client ID: "Will-message-test"
+                0, 12, 119, 105, 108, 108, 116, 101, 115, 116, 47, 111, 102, 102,               // will topic: "willtest/off"
+                0, 7, 111, 102, 102, 108, 105, 110, 101,                                        // will message: "offline"
+                0, 13, 104, 111, 109, 101, 97, 115, 115, 105, 115, 116, 97, 110, 116,           // username: "homeassistant"
+                0, 8, 109, 105, 110, 100, 102, 114, 101, 101                                    // password: "mindfree"
+            };
+            // Act
+            byte[] encoded = connect.GetBytes(connect.ProtocolVersion);
+            // Assert
+            Assert.AreEqual(correctEncoded.Length, encoded.Length, "Packet length mismatch — will properties byte may have been incorrectly included");
+            CollectionAssert.AreEqual(correctEncoded, encoded);
+        }
     }
 }
