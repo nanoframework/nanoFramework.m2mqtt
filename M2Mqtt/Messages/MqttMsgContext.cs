@@ -41,9 +41,9 @@ namespace nanoFramework.M2Mqtt.Messages
         public MqttMsgFlow Flow { get; set; }
 
         /// <summary>
-        /// Timestamp in ticks (for retry)
+        /// Timestamp in milliseconds (for retry)
         /// </summary>
-        public int Timestamp { get; set; }
+        public long Timestamp { get; set; }
 
         /// <summary>
         /// Attempt (for retry)
