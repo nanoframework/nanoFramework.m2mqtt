@@ -811,6 +811,11 @@ namespace nanoFramework.M2Mqtt
             if (!_isConnectionClosing)
             {
                 _isConnectionClosing = true;
+
+                // set IsConnected to false immediately so user code can detect
+                // the failure without waiting for Close() to complete
+                IsConnected = false;
+
                 _receiveEventWaitHandle.Set();
             }
         }
@@ -1479,12 +1484,14 @@ namespace nanoFramework.M2Mqtt
                     {
                         // [v3.1.1] scenarios the receiver MUST close the network connection
                         MqttClientException ex = e as MqttClientException;
-                        close = ((ex.ErrorCode == MqttClientErrorCode.InvalidFlagBits) ||
+                        close = (ex.ErrorCode == MqttClientErrorCode.InvalidFlagBits) ||
                                 (ex.ErrorCode == MqttClientErrorCode.InvalidProtocolName) ||
-                                (ex.ErrorCode == MqttClientErrorCode.InvalidConnectFlags));
+                                (ex.ErrorCode == MqttClientErrorCode.InvalidConnectFlags);
                     }
-                    else if ((e.GetType() == typeof(IOException)) || (e.GetType() == typeof(SocketException)) ||
-                             ((e.InnerException != null) && (e.InnerException.GetType() == typeof(SocketException)))) // added for SSL/TLS incoming connection that use SslStream that wraps SocketException
+                    else if ((e.GetType() == typeof(IOException))
+                             || (e.GetType() == typeof(SocketException))
+                             // added for SSL/TLS incoming connection that use SslStream that wraps SocketException
+                             || ((e.InnerException != null) && (e.InnerException.GetType() == typeof(SocketException))))
                     {
                         close = true;
                     }
@@ -1510,32 +1517,48 @@ namespace nanoFramework.M2Mqtt
             // create event to signal that current thread is end
             _keepAliveEventEnd = new AutoResetEvent(false);
 
-            while (_isRunning)
+            try
             {
-                // waiting...
-                _keepAliveEvent.WaitOne((int)wait, false);
-
-                if (_isRunning)
+                while (_isRunning)
                 {
-                    delta = Environment.TickCount64 - _lastCommTime;
+                    // waiting...
+                    _keepAliveEvent.WaitOne((int)wait, false);
 
-                    // if timeout exceeded ...
-                    if (delta >= _keepAlivePeriod)
+                    if (_isRunning)
                     {
-                        // ... send keep alive
-                        Ping();
-                        wait = _keepAlivePeriod;
-                    }
-                    else
-                    {
-                        // update waiting time
-                        wait = _keepAlivePeriod - delta;
+                        delta = Environment.TickCount64 - _lastCommTime;
+
+                        // if timeout exceeded ...
+                        if (delta >= _keepAlivePeriod)
+                        {
+                            // ... send keep alive
+                            Ping();
+                            wait = _keepAlivePeriod;
+                        }
+                        else
+                        {
+                            // update waiting time
+                            wait = _keepAlivePeriod - delta;
+                        }
                     }
                 }
             }
-
-            // signal thread end
-            _keepAliveEventEnd.Set();
+#if DEBUG
+            catch (Exception e)
+            {
+                Debug.WriteLine($"Exception occurred in KeepAliveThread: {e}");
+#else
+            catch (Exception)
+            {
+#endif
+                // raise disconnection client event
+                OnConnectionClosing();
+            }
+            finally
+            {
+                // always signal thread end so Close() won't wait forever
+                _keepAliveEventEnd.Set();
+            }
         }
 
         /// <summary>
@@ -1545,115 +1568,129 @@ namespace nanoFramework.M2Mqtt
         {
             while (_isRunning)
             {
-                if ((_eventQueue.Count == 0) && !_isConnectionClosing)
-                    // wait on receiving message from client
-                    _receiveEventWaitHandle.WaitOne();
-
-                // check if it is running or we are closing client
-                if (_isRunning)
+                try
                 {
-                    // get event from queue
-                    InternalEvent internalEvent = null;
-                    lock (_eventQueue)
-                    {
-                        if (_eventQueue.Count > 0)
-                        {
-                            internalEvent = (InternalEvent)_eventQueue.Dequeue();
-                        }
-                    }
+                    if ((_eventQueue.Count == 0) && !_isConnectionClosing)
+                        // wait on receiving message from client
+                        _receiveEventWaitHandle.WaitOne();
 
-                    // it's an event with a message inside
-                    if (internalEvent != null)
+                    // check if it is running or we are closing client
+                    if (_isRunning)
                     {
-                        MqttMsgBase msg = ((MsgInternalEvent)internalEvent).Message;
-
-                        if (msg != null)
+                        // get event from queue
+                        InternalEvent internalEvent = null;
+                        lock (_eventQueue)
                         {
-                            switch (msg.Type)
+                            if (_eventQueue.Count > 0)
                             {
-                                // CONNECT message received
-                                case MqttMessageType.Connect:
-                                    throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
-
-                                // SUBSCRIBE message received
-                                case MqttMessageType.Subscribe:
-                                    throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
-
-                                // SUBACK message received
-                                case MqttMessageType.SubscribeAck:
-
-                                    // raise subscribed topic event (SUBACK message received)
-                                    OnMqttMsgSubscribed((MqttMsgSuback)msg);
-                                    break;
-
-                                // PUBLISH message received
-                                case MqttMessageType.Publish:
-
-                                    // PUBLISH message received in a published internal event, no publish succeeded
-                                    if (internalEvent.GetType() == typeof(MsgPublishedInternalEvent))
-                                        OnMqttMsgPublished(msg.MessageId, false);
-                                    else
-                                        // raise PUBLISH message received event 
-                                        OnMqttMsgPublishReceived((MqttMsgPublish)msg);
-                                    break;
-
-                                // PUBACK message received
-                                case MqttMessageType.PublishAck:
-
-                                    // raise published message event
-                                    // (PUBACK received for QoS Level 1)
-                                    OnMqttMsgPublished(msg.MessageId, true);
-                                    break;
-
-                                // PUBREL message received
-                                case MqttMessageType.PublishRelease:
-
-                                    // raise message received event 
-                                    // (PUBREL received for QoS Level 2)
-                                    OnMqttMsgPublishReceived((MqttMsgPublish)msg);
-                                    break;
-
-                                // PUBCOMP message received
-                                case MqttMessageType.PublishComplete:
-
-                                    // raise published message event
-                                    // (PUBCOMP received for QoS Level 2)
-                                    OnMqttMsgPublished(msg.MessageId, true);
-                                    break;
-
-                                // UNSUBSCRIBE message received from client
-                                case MqttMessageType.Unsubscribe:
-                                    throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
-
-                                // UNSUBACK message received
-                                case MqttMessageType.UnsubscribeAck:
-
-                                    // raise unsubscribed topic event
-                                    OnMqttMsgUnsubscribed(msg.MessageId);
-                                    break;
-
-                                // DISCONNECT message received from client
-                                case MqttMessageType.Disconnect:
-                                    OnConnectionClosed();
-                                    break; ;
-
-                                // AUTH message received
-                                case MqttMessageType.Authentication:
-                                    OnMqttMsgAuthentication((MqttMsgAuthentication)msg);
-                                    break;
+                                internalEvent = (InternalEvent)_eventQueue.Dequeue();
                             }
                         }
-                    }
 
-                    // all events for received messages dispatched, check if there is closing connection
-                    if ((_eventQueue.Count == 0) && _isConnectionClosing)
-                    {
-                        // client must close connection
-                        Close();
+                        // it's an event with a message inside
+                        if (internalEvent != null)
+                        {
+                            MqttMsgBase msg = ((MsgInternalEvent)internalEvent).Message;
 
-                        // client raw disconnection
-                        OnConnectionClosed();
+                            if (msg != null)
+                            {
+                                switch (msg.Type)
+                                {
+                                    // CONNECT message received
+                                    case MqttMessageType.Connect:
+                                        throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
+
+                                    // SUBSCRIBE message received
+                                    case MqttMessageType.Subscribe:
+                                        throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
+
+                                    // SUBACK message received
+                                    case MqttMessageType.SubscribeAck:
+
+                                        // raise subscribed topic event (SUBACK message received)
+                                        OnMqttMsgSubscribed((MqttMsgSuback)msg);
+                                        break;
+
+                                    // PUBLISH message received
+                                    case MqttMessageType.Publish:
+
+                                        // PUBLISH message received in a published internal event, no publish succeeded
+                                        if (internalEvent.GetType() == typeof(MsgPublishedInternalEvent))
+                                            OnMqttMsgPublished(msg.MessageId, false);
+                                        else
+                                            // raise PUBLISH message received event 
+                                            OnMqttMsgPublishReceived((MqttMsgPublish)msg);
+                                        break;
+
+                                    // PUBACK message received
+                                    case MqttMessageType.PublishAck:
+
+                                        // raise published message event
+                                        // (PUBACK received for QoS Level 1)
+                                        OnMqttMsgPublished(msg.MessageId, true);
+                                        break;
+
+                                    // PUBREL message received
+                                    case MqttMessageType.PublishRelease:
+
+                                        // raise message received event 
+                                        // (PUBREL received for QoS Level 2)
+                                        OnMqttMsgPublishReceived((MqttMsgPublish)msg);
+                                        break;
+
+                                    // PUBCOMP message received
+                                    case MqttMessageType.PublishComplete:
+
+                                        // raise published message event
+                                        // (PUBCOMP received for QoS Level 2)
+                                        OnMqttMsgPublished(msg.MessageId, true);
+                                        break;
+
+                                    // UNSUBSCRIBE message received from client
+                                    case MqttMessageType.Unsubscribe:
+                                        throw new MqttClientException(MqttClientErrorCode.WrongBrokerMessage);
+
+                                    // UNSUBACK message received
+                                    case MqttMessageType.UnsubscribeAck:
+
+                                        // raise unsubscribed topic event
+                                        OnMqttMsgUnsubscribed(msg.MessageId);
+                                        break;
+
+                                    // DISCONNECT message received from client
+                                    case MqttMessageType.Disconnect:
+                                        OnConnectionClosed();
+                                        break;
+
+                                    // AUTH message received
+                                    case MqttMessageType.Authentication:
+                                        OnMqttMsgAuthentication((MqttMsgAuthentication)msg);
+                                        break;
+                                }
+                            }
+                        }
+
+                        // all events for received messages dispatched, check if there is closing connection
+                        if ((_eventQueue.Count == 0) && _isConnectionClosing)
+                        {
+                            // client must close connection
+                            Close();
+
+                            // client raw disconnection
+                            OnConnectionClosed();
+                        }
                     }
+                }
+#if DEBUG
+                catch (Exception e)
+                {
+                    Debug.WriteLine($"Exception occurred in DispatchEventThread: {e}");
+#else
+                catch (Exception)
+                {
+#endif
+                    // ensure connection is flagged as closing on any exception
+                    OnConnectionClosing();
                 }
             }
         }
@@ -2347,6 +2384,10 @@ namespace nanoFramework.M2Mqtt
                                 default:
                                     break;
                             }
+
+                            // clear reference so the catch block can't re-enqueue
+                            // a message that was already handled or re-enqueued
+                            msgContext = null;
                         }
 
                         // if calculated timeout is MaxValue, it means that must be Infinite (-1)
@@ -2390,6 +2431,28 @@ namespace nanoFramework.M2Mqtt
 #if DEBUG
                 Debug.WriteLine($"Exception occurred: {e}");
 #endif
+
+                // raise disconnection client event
+                OnConnectionClosing();
+            }
+#if DEBUG
+            catch (Exception e)
+            {
+                Debug.WriteLine($"Exception occurred in ProcessInflightThread: {e}");
+#else
+            catch (Exception)
+            {
+#endif
+                // safety net for any unexpected exception (e.g. SocketException
+                // not wrapped in MqttCommunicationException)
+                if (msgContext != null)
+                {
+                    lock (_inflightQueue)
+                    {
+                        // re-enqueue message
+                        _inflightQueue.Enqueue(msgContext);
+                    }
+                }
 
                 // raise disconnection client event
                 OnConnectionClosing();
