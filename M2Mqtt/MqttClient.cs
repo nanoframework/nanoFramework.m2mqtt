@@ -61,7 +61,7 @@ namespace nanoFramework.M2Mqtt
         // events for signaling on keep alive thread
         private AutoResetEvent _keepAliveEvent;
         private AutoResetEvent _keepAliveEventEnd;
-        // last communication time in ticks
+        // last communication time in milliseconds since boot
         private long _lastCommTime;
         // channel to communicate over the network
         private IMqttNetworkChannel _channel;
