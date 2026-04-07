@@ -889,7 +889,7 @@ namespace nanoFramework.M2Mqtt
                     _channel.Send(msgBytes);
                 }
 
-                // update last message sent ticks
+                // update last communication time in milliseconds
                 _lastCommTime = Environment.TickCount64;
             }
             catch (Exception e)
