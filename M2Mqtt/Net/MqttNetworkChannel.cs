@@ -148,6 +148,36 @@ namespace nanoFramework.M2Mqtt
         /// </summary>
         public void Connect()
         {
+            // clean up any pre-existing socket/SSL stream to avoid resource leaks on reconnect
+            if (_sslStream != null)
+            {
+                try
+                {
+                    _sslStream.Close();
+                    _sslStream.Dispose();
+                }
+                catch
+                {
+                    // best effort cleanup
+                }
+
+                _sslStream = null;
+            }
+
+            if (_socket != null)
+            {
+                try
+                {
+                    _socket.Close();
+                }
+                catch
+                {
+                    // best effort cleanup
+                }
+
+                _socket = null;
+            }
+
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             // try connection to the broker
@@ -267,14 +297,32 @@ namespace nanoFramework.M2Mqtt
         /// </summary>
         public void Close()
         {
-            if (_secure)
+            if (_secure && _sslStream != null)
             {
-                _sslStream.Close();
-                _sslStream.Dispose();
+                try
+                {
+                    _sslStream.Close();
+                    _sslStream.Dispose();
+                }
+                catch
+                {
+                    // best effort cleanup
+                }
+
                 _sslStream = null;
             }
 
-            _socket.Close();
+            if (_socket != null)
+            {
+                try
+                {
+                    _socket.Close();
+                }
+                catch
+                {
+                    // best effort cleanup
+                }
+            }
         }
 
         /// <summary>
@@ -331,4 +379,3 @@ namespace nanoFramework.M2Mqtt
 
     }
 }
-
