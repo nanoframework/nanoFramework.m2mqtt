@@ -322,6 +322,8 @@ namespace nanoFramework.M2Mqtt
                 {
                     // best effort cleanup
                 }
+
+                _socket = null;
             }
         }
 

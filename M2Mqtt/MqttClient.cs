@@ -1484,12 +1484,14 @@ namespace nanoFramework.M2Mqtt
                     {
                         // [v3.1.1] scenarios the receiver MUST close the network connection
                         MqttClientException ex = e as MqttClientException;
-                        close = ((ex.ErrorCode == MqttClientErrorCode.InvalidFlagBits) ||
+                        close = (ex.ErrorCode == MqttClientErrorCode.InvalidFlagBits) ||
                                 (ex.ErrorCode == MqttClientErrorCode.InvalidProtocolName) ||
-                                (ex.ErrorCode == MqttClientErrorCode.InvalidConnectFlags));
+                                (ex.ErrorCode == MqttClientErrorCode.InvalidConnectFlags);
                     }
-                    else if ((e.GetType() == typeof(IOException)) || (e.GetType() == typeof(SocketException)) ||
-                             ((e.InnerException != null) && (e.InnerException.GetType() == typeof(SocketException)))) // added for SSL/TLS incoming connection that use SslStream that wraps SocketException
+                    else if ((e.GetType() == typeof(IOException))
+                             || (e.GetType() == typeof(SocketException))
+                             // added for SSL/TLS incoming connection that use SslStream that wraps SocketException
+                             || ((e.InnerException != null) && (e.InnerException.GetType() == typeof(SocketException))))
                     {
                         close = true;
                     }
@@ -1658,7 +1660,7 @@ namespace nanoFramework.M2Mqtt
                                     // DISCONNECT message received from client
                                     case MqttMessageType.Disconnect:
                                         OnConnectionClosed();
-                                        break; ;
+                                        break;
 
                                     // AUTH message received
                                     case MqttMessageType.Authentication:
@@ -2382,6 +2384,10 @@ namespace nanoFramework.M2Mqtt
                                 default:
                                     break;
                             }
+
+                            // clear reference so the catch block can't re-enqueue
+                            // a message that was already handled or re-enqueued
+                            msgContext = null;
                         }
 
                         // if calculated timeout is MaxValue, it means that must be Infinite (-1)
