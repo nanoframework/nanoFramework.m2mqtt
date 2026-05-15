@@ -18,15 +18,13 @@
     <description>M2Mqtt is a MQTT client available for .NET nanoFramework for M2M communication.</description>
     <tags>m2m mqtt queue messaging internetofthings iot cloud netmf embedded micro netduino micro-framework hardware gadgeteer</tags>
     <dependencies>
-      <dependency id="nanoFramework.CoreLibrary" version="1.17.11" />
+      <group targetFramework=".NETnanoFramework1.0">
+        <dependency id="nanoFramework.CoreLibrary" version="2.0.0-preview.49" />
+      </group>
     </dependencies>
   </metadata>
   <files>
-    <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.dll" target="lib\nanoFramework.M2Mqtt.Core.dll" />
-    <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.pdb" target="lib\nanoFramework.M2Mqtt.Core.pdb" />
-    <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.pdbx" target="lib\nanoFramework.M2Mqtt.Core.pdbx" />
-    <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.pe" target="lib\nanoFramework.M2Mqtt.Core.pe" />
-    <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.xml" target="lib\nanoFramework.M2Mqtt.Core.xml" />
+    <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.*" target="lib\netnano1.0" />
     <file src="assets\readme.txt" target="" />
     <file src="README.md" target="docs\" />
     <file src="assets\nf-logo.png" target="images" />

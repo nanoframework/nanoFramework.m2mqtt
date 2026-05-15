@@ -69,6 +69,7 @@ jobs:
   - template: azure-pipelines-templates/class-lib-build-only.yml@templates
     parameters:
       sonarCloudProject: 'nanoframework_paho.mqtt.m2mqtt'
+      usePreviewBuild: true
       runUnitTests: false
       unitTestRunsettings: '$(System.DefaultWorkingDirectory)\.runsettings'
 

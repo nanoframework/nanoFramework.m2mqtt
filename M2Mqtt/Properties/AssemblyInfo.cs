@@ -27,12 +27,6 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyProduct("nanoFramework.M2Mqtt")]
 [assembly: AssemblyCopyright("Copyright (c) Paolo Patierno 2014 & .NET Foundation and Contributors")]
 
-
-///////////////////////////////////////////////////
-// this class doesn't have native implementation //
-[assembly: AssemblyNativeVersion("0.0.0.0")]
-///////////////////////////////////////////////////
-
 [assembly: InternalsVisibleTo("NFUnitTest, PublicKey=" + "00240000048000009400000006020000002400005253413100040000010001001120aa3e809b3d" +
 "a4f65e1b1f65c0a3a1bf6335c39860ca41acb3c48de278c6b63c5df38239ec1f2e32d58cb897c8" +
 "c174a5f8e78a9c0b6087d3aef373d7d0f3d9be67700fc2a5a38de1fb71b5b6f6046d841ff35abe" +
