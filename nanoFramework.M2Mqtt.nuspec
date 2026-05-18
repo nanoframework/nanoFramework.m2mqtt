@@ -31,10 +31,12 @@
     <file src="M2Mqtt\bin\Release\nanoFramework.M2Mqtt.dll" target="lib\netnano1.0" />
     <file src="M2Mqtt\bin\Release\nanoFramework.M2Mqtt.xml" target="lib\netnano1.0" />
     <file src="M2Mqtt\bin\Release\nanoFramework.M2Mqtt.pdbx" target="lib\netnano1.0" />
+    <file src="M2Mqtt\bin\Release\nanoFramework.M2Mqtt.pdb" target="lib\netnano1.0" />
     <file src="M2Mqtt\bin\Release\nanoFramework.M2Mqtt.pe" target="lib\netnano1.0" />
     <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.dll" target="lib\netnano1.0" />
     <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.xml" target="lib\netnano1.0" />
     <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.pdbx" target="lib\netnano1.0" />
+    <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.pdb" target="lib\netnano1.0" />
     <file src="nanoFramework.M2Mqtt.Core\bin\Release\nanoFramework.M2Mqtt.Core.pe" target="lib\netnano1.0" />
     <file src="assets\readme.txt" target="" />
     <file src="README.md" target="docs\" />
