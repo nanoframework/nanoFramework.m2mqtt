@@ -84,6 +84,8 @@ jobs:
 
   # publish the 2 libs
   - template: azure-pipelines-templates/class-lib-publish.yml@templates
+    parameters:
+      baseBranchName: 'develop'
 
   # create GitHub release build from main branch
   - task: GithubRelease@1
