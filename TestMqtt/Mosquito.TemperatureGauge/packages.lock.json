@@ -22,15 +22,15 @@
       },
       "nanoFramework.System.IO.Streams": {
         "type": "Direct",
-        "requested": "[2.0.0-preview.21, 2.0.0-preview.21]",
-        "resolved": "2.0.0-preview.21",
-        "contentHash": "wsgKxwjG/QWIgIi/6zPs9M5u1g8digdOHOkUXweij0jHg96yjfCaN6907XElq9zT79QDomJWKMFGSdGqJAkm4Q=="
+        "requested": "[2.0.0-preview.22, 2.0.0-preview.22]",
+        "resolved": "2.0.0-preview.22",
+        "contentHash": "TwAY/tgMEZwEP06SjKElRKs+y8mzRNe3D32J+x/IhUtJmjnowv37BQwPpycOH3w5TWjf95YDP4AUFsDhjGs4Vg=="
       },
       "nanoFramework.System.Net": {
         "type": "Direct",
-        "requested": "[2.0.0-preview.23, 2.0.0-preview.23]",
-        "resolved": "2.0.0-preview.23",
-        "contentHash": "ruxEY7sTB5WgqhRj/uduenpI4DHFzDR92JiNrWtBHC08edTXe+4vm4sqEbmdadM2SUW3QO4NvknWc6ghoIGkBg=="
+        "requested": "[2.0.0-preview.24, 2.0.0-preview.24]",
+        "resolved": "2.0.0-preview.24",
+        "contentHash": "UsyQX8UlSeOjYrzF5YBNNMy8eOXjh6ZuMOIOjm12TSr0CTXZc3jnafssrMQXL6LwOVasHQDL4/ICtaTwRr9oWg=="
       },
       "nanoFramework.System.Text": {
         "type": "Direct",
