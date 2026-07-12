@@ -44,9 +44,9 @@ namespace nanoFramework.M2Mqtt
 
         /// <summary>
         /// Delay for retry publish, subscribe and unsubscribe for QoS Level 1 or 2.
-        /// This is in ticks, equivalent of 1 second.
+        /// This is in milliseconds, equivalent of 1 second.
         /// </summary>
-        public const int DefaultDelayRetry = 10_000_000;
+        public const int DefaultDelayRetry = 1_000;
 
         /// <summary>
         /// Connection Timeout

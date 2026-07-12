@@ -65,6 +65,9 @@ namespace nanoFramework.M2Mqtt
         private long _lastCommTime;
         // channel to communicate over the network
         private IMqttNetworkChannel _channel;
+        // lock to serialize writes to the network channel across threads
+        // (inflight/process thread, keep alive thread, ...)
+        private readonly object _channelSendLock = new object();
 
         // inflight messages queue
         private Queue _inflightQueue;
@@ -891,7 +894,12 @@ namespace nanoFramework.M2Mqtt
                 // send message
                 if (_channel is object)
                 {
-                    _channel.Send(msgBytes);
+                    // serialize writes so concurrent senders (e.g. inflight thread
+                    // and keep alive thread) can't interleave bytes on the stream
+                    lock (_channelSendLock)
+                    {
+                        _channel.Send(msgBytes);
+                    }
                 }
 
                 // update last communication time in milliseconds
@@ -934,7 +942,12 @@ namespace nanoFramework.M2Mqtt
                 // send message
                 if (_channel is object)
                 {
-                    _channel.Send(msgBytes);
+                    // serialize writes so concurrent senders (e.g. inflight thread
+                    // and keep alive thread) can't interleave bytes on the stream
+                    lock (_channelSendLock)
+                    {
+                        _channel.Send(msgBytes);
+                    }
                 }
 
                 // update last message sent ticks
@@ -1172,16 +1185,14 @@ namespace nanoFramework.M2Mqtt
 
             lock (_waitingForAnswer)
             {
+                // the answer for a QoS 1 or 2 message we published has arrived,
+                // stop tracking it so that a pending retry attempt won't resend it.
+                // NOTE : the message is still enqueued into the internal queue below so
+                //        the inflight state machine can process it, remove the inflight
+                //        context and the related session entry deterministically.
                 if (_waitingForAnswer.Contains(msg.MessageId))
                 {
-                    enqueue = false;
                     _waitingForAnswer.Remove(msg.MessageId);
-                    // Send the event as when here, it won't be enqueued.
-                    if (msg.Type == MqttMessageType.PublishAck)
-                    {
-                        OnInternalEvent(new MsgInternalEvent(msg));
-                        return;
-                    }
                 }
             }
 
@@ -1329,10 +1340,11 @@ namespace nanoFramework.M2Mqtt
                             // PINGRESP message received
                             case MqttMessageType.PingResponse:
 
+                                // a PINGRESP only confirms the connection is alive, it must not
+                                // touch any in-flight message state (internal queue, session or
+                                // pending answers), otherwise QoS 1/2 exchanges in progress would
+                                // be corrupted or lost
                                 _msgReceived = MqttMsgPingResp.Parse(fixedHeaderFirstByte[0], ProtocolVersion, _channel);
-                                _internalQueue.Clear();
-                                _session?.Clear();
-                                _waitingForAnswer.Clear();
 #if DEBUG
                                 Debug.WriteLine($"RECV {_msgReceived}");
 #endif
@@ -1710,9 +1722,9 @@ namespace nanoFramework.M2Mqtt
             bool msgReceivedProcessed = false;
             bool toEnqueue = true;
 
-            try
+            while (_isRunning)
             {
-                while (_isRunning)
+                try
                 {
                     // wait on message queueud to inflight
                     _inflightWaitHandle.WaitOne((int)timeout, false);
@@ -1756,6 +1768,14 @@ namespace nanoFramework.M2Mqtt
 
                             lock (_inflightQueue)
                             {
+                                // the queue could have been cleared concurrently (e.g. the
+                                // connection is closing), so guard against dequeuing from an
+                                // empty queue which would throw
+                                if (_inflightQueue.Count == 0)
+                                {
+                                    break;
+                                }
+
                                 // dequeue message context from queue
                                 msgContext = (MqttMsgContext)_inflightQueue.Dequeue();
                             }
@@ -1834,6 +1854,17 @@ namespace nanoFramework.M2Mqtt
                                                 _inflightQueue.Enqueue(msgContext);
                                             }
                                         }
+                                        else
+                                        {
+                                            // the answer already arrived (message no longer tracked in
+                                            // _waitingForAnswer), so this retry is obsolete: the context is
+                                            // dropped and must be removed from the session state too
+                                            if ((_session != null) &&
+                                                (_session.InflightMessages.Contains(msgContext.Key)))
+                                            {
+                                                _session.InflightMessages.Remove(msgContext.Key);
+                                            }
+                                        }
 
                                         // update timeout : minimum between delay (based on current message sent) or current timeout
                                         timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
@@ -1892,6 +1923,17 @@ namespace nanoFramework.M2Mqtt
                                                 _inflightQueue.Enqueue(msgContext);
                                             }
                                         }
+                                        else
+                                        {
+                                            // the answer already arrived (message no longer tracked in
+                                            // _waitingForAnswer), so this retry is obsolete: the context is
+                                            // dropped and must be removed from the session state too
+                                            if ((_session != null) &&
+                                                (_session.InflightMessages.Contains(msgContext.Key)))
+                                            {
+                                                _session.InflightMessages.Remove(msgContext.Key);
+                                            }
+                                        }
 
                                         // update timeout : minimum between delay (based on current message sent) or current timeout
                                         timeout = (_settings.DelayOnRetry < timeout) ? _settings.DelayOnRetry : timeout;
@@ -1943,6 +1985,12 @@ namespace nanoFramework.M2Mqtt
                                                 ((msgReceived.Type == MqttMessageType.SubscribeAck) && (msgInflight.Type == MqttMessageType.Subscribe) && (msgReceived.MessageId == msgInflight.MessageId)) ||
                                                 ((msgReceived.Type == MqttMessageType.UnsubscribeAck) && (msgInflight.Type == MqttMessageType.Unsubscribe) && (msgReceived.MessageId == msgInflight.MessageId)))
                                             {
+                                                lock (_internalQueue)
+                                                {
+                                                    // received message processed, remove it from the internal queue
+                                                    _internalQueue.Dequeue();
+                                                }
+
                                                 acknowledge = true;
                                                 msgReceivedProcessed = true;
 #if DEBUG
@@ -2410,52 +2458,66 @@ namespace nanoFramework.M2Mqtt
                         }
                     }
                 }
-            }
 #if DEBUG
-            catch (MqttCommunicationException e)
-            {
-#else
-            catch (MqttCommunicationException)
-            {
-#endif
-                // possible exception on Send, I need to re-enqueue not sent message
-                if (msgContext != null)
+                catch (MqttCommunicationException e)
                 {
-                    lock (_inflightQueue)
-                    {
-                        // re-enqueue message
-                        _inflightQueue.Enqueue(msgContext);
-                    }
-                }
-
-#if DEBUG
-                Debug.WriteLine($"Exception occurred: {e}");
-#endif
-
-                // raise disconnection client event
-                OnConnectionClosing();
-            }
-#if DEBUG
-            catch (Exception e)
-            {
-                Debug.WriteLine($"Exception occurred in ProcessInflightThread: {e}");
 #else
-            catch (Exception)
-            {
-#endif
-                // safety net for any unexpected exception (e.g. SocketException
-                // not wrapped in MqttCommunicationException)
-                if (msgContext != null)
+                catch (MqttCommunicationException)
                 {
-                    lock (_inflightQueue)
+#endif
+                    // possible exception on Send, I need to re-enqueue not sent message
+                    if (msgContext != null)
                     {
-                        // re-enqueue message
-                        _inflightQueue.Enqueue(msgContext);
-                    }
-                }
+                        lock (_inflightQueue)
+                        {
+                            // re-enqueue message
+                            _inflightQueue.Enqueue(msgContext);
+                        }
 
-                // raise disconnection client event
-                OnConnectionClosing();
+                        msgContext = null;
+                    }
+
+#if DEBUG
+                    Debug.WriteLine($"Exception occurred: {e}");
+#endif
+
+                    // idle until the next signal (new message or Close) to avoid busy looping
+                    // while the connection is down; the thread stays alive so it can resume
+                    // draining once the connection recovers or is closed
+                    timeout = Timeout.Infinite;
+
+                    // raise disconnection client event
+                    OnConnectionClosing();
+                }
+#if DEBUG
+                catch (Exception e)
+                {
+                    Debug.WriteLine($"Exception occurred in ProcessInflightThread: {e}");
+#else
+                catch (Exception)
+                {
+#endif
+                    // safety net for any unexpected exception (e.g. SocketException
+                    // not wrapped in MqttCommunicationException)
+                    if (msgContext != null)
+                    {
+                        lock (_inflightQueue)
+                        {
+                            // re-enqueue message
+                            _inflightQueue.Enqueue(msgContext);
+                        }
+
+                        msgContext = null;
+                    }
+
+                    // idle until the next signal (new message or Close) to avoid busy looping
+                    // while the connection is down; the thread stays alive so it can resume
+                    // draining once the connection recovers or is closed
+                    timeout = Timeout.Infinite;
+
+                    // raise disconnection client event
+                    OnConnectionClosing();
+                }
             }
         }
 

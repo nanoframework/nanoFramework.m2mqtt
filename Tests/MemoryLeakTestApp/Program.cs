@@ -13,13 +13,15 @@ namespace MemoryLeakTestApp
     {
         private const string Brocker = "192.168.1.2";
         private const string Ssid = "yourssid";
-        private const string Password = "you_wifi_password";
-        private const int NumberOfLoops = 5;
+        private const string Password = "your_wifi_password";
+        private const int NumberOfLoops = 30;
         private static MqttClient client;
         private static uint freeRam = 0;
 
         public static void Main()
         {
+            SetupAndConnectNetwork();
+
             client = new MqttClient(Brocker);
 
             string clientId = Guid.NewGuid().ToString();
@@ -59,6 +61,8 @@ namespace MemoryLeakTestApp
             freeRam = nanoFramework.Runtime.Native.GC.Run(true);
             client.Publish("temp/free-ram", Encoding.UTF8.GetBytes(freeRam.ToString("F0")), null, null, MqttQoSLevel.AtMostOnce, false);
             Thread.Sleep(Timeout.Infinite);
+
+            Debug.WriteLine("Test completed");
 
             // Testing dispose
             client.Dispose();
