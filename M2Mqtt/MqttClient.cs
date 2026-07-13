@@ -42,6 +42,9 @@ namespace nanoFramework.M2Mqtt
 
         // running status of threads
         private bool _isRunning;
+        // reference to the inflight worker so a reconnect can stop/replace it
+        // instead of leaving a second ProcessInflightThread running
+        private Thread _processInflightThread;
         // event for raising received message event
         private AutoResetEvent _receiveEventWaitHandle;
 
@@ -459,6 +462,17 @@ namespace nanoFramework.M2Mqtt
             }
 
             _lastCommTime = 0;
+
+            // make sure a previous inflight worker (e.g. from a dropped connection
+            // that is now reconnecting) is fully stopped before starting a new one,
+            // so there is never more than one ProcessInflightThread per client
+            if (_processInflightThread != null && _processInflightThread.IsAlive)
+            {
+                _isRunning = false;
+                _inflightWaitHandle.Set();
+                _processInflightThread.Join();
+            }
+
             _isRunning = true;
             _isConnectionClosing = false;
             // start thread for receiving messages from broker
@@ -518,7 +532,8 @@ namespace nanoFramework.M2Mqtt
                 Fx.StartThread(DispatchEventThread);
 
                 // start thread for handling inflight messages queue to broker asynchronously (publish and acknowledge)
-                Fx.StartThread(ProcessInflightThread);
+                _processInflightThread = new Thread(ProcessInflightThread);
+                _processInflightThread.Start();
 
                 if (!IsAuthenticationFlow)
                 {
@@ -585,11 +600,39 @@ namespace nanoFramework.M2Mqtt
                     _keepAliveEventEnd.WaitOne(1000, true);
                 }
 
-                // clear all queues
-                _inflightQueue?.Clear();
-                _internalQueue?.Clear();
-                _waitingForAnswer?.Clear();
-                _eventQueue?.Clear();
+                // clear all queues under their locks to avoid racing the
+                // background threads that access these same collections
+                if (_inflightQueue != null)
+                {
+                    lock (_inflightQueue)
+                    {
+                        _inflightQueue.Clear();
+                    }
+                }
+
+                if (_internalQueue != null)
+                {
+                    lock (_internalQueue)
+                    {
+                        _internalQueue.Clear();
+                    }
+                }
+
+                if (_waitingForAnswer != null)
+                {
+                    lock (_waitingForAnswer)
+                    {
+                        _waitingForAnswer.Clear();
+                    }
+                }
+
+                if (_eventQueue != null)
+                {
+                    lock (_eventQueue)
+                    {
+                        _eventQueue.Clear();
+                    }
+                }
 
                 // close network channel
                 _channel?.Close();

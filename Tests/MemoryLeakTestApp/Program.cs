@@ -48,7 +48,7 @@ namespace MemoryLeakTestApp
             client.Publish("temp/free-ram", Encoding.UTF8.GetBytes(freeRam.ToString("F0")), null, null, MqttQoSLevel.AtMostOnce, false);
             // Wait a bit 
             Thread.Sleep(5_000);
-            client.Publish("temp/test", Encoding.UTF8.GetBytes($"Memory left after all the tnull, null,est: 5s"), null, null, MqttQoSLevel.AtMostOnce, false);
+            client.Publish("temp/test", Encoding.UTF8.GetBytes($"Memory left after all the test: 5s"), null, null, MqttQoSLevel.AtMostOnce, false);
             freeRam = nanoFramework.Runtime.Native.GC.Run(true);
             client.Publish("temp/free-ram", Encoding.UTF8.GetBytes(freeRam.ToString("F0")), null, null, MqttQoSLevel.AtMostOnce, false);
             // Wait more
@@ -60,12 +60,13 @@ namespace MemoryLeakTestApp
             client.Publish("temp/test", Encoding.UTF8.GetBytes($"Memory left after all the test: 120s"), null, null, MqttQoSLevel.AtMostOnce, false);
             freeRam = nanoFramework.Runtime.Native.GC.Run(true);
             client.Publish("temp/free-ram", Encoding.UTF8.GetBytes(freeRam.ToString("F0")), null, null, MqttQoSLevel.AtMostOnce, false);
-            Thread.Sleep(Timeout.Infinite);
 
             Debug.WriteLine("Test completed");
 
             // Testing dispose
             client.Dispose();
+
+            Thread.Sleep(Timeout.Infinite);
         }
 
         private static void Publish(MqttQoSLevel level)
@@ -119,7 +120,7 @@ namespace MemoryLeakTestApp
                     Debug.WriteLine("Network connection is: Wi-Fi");
 
                     Wireless80211Configuration wc = Wireless80211Configuration.GetAllWireless80211Configurations()[ni.SpecificConfigId];
-                    if (wc.Ssid != Ssid && wc.Password != Password)
+                    if (wc.Ssid != Ssid || wc.Password != Password)
                     {
                         // have to update Wi-Fi configuration
                         wc.Ssid = Ssid;
