@@ -42,9 +42,11 @@ namespace nanoFramework.M2Mqtt
 
         // running status of threads
         private bool _isRunning;
-        // reference to the inflight worker so a reconnect can stop/replace it
-        // instead of leaving a second ProcessInflightThread running
+        // references to the worker threads so a reconnect can stop/replace them
+        // instead of leaving duplicate workers running
         private Thread _processInflightThread;
+        private Thread _receiveThread;
+        private Thread _keepAliveThread;
         // event for raising received message event
         private AutoResetEvent _receiveEventWaitHandle;
 
@@ -463,20 +465,35 @@ namespace nanoFramework.M2Mqtt
 
             _lastCommTime = 0;
 
-            // make sure a previous inflight worker (e.g. from a dropped connection
-            // that is now reconnecting) is fully stopped before starting a new one,
-            // so there is never more than one ProcessInflightThread per client
-            if (_processInflightThread != null && _processInflightThread.IsAlive)
+            // make sure any worker threads still running from a previous connection
+            // (e.g. a dropped connection that is now reconnecting) are fully stopped
+            // before starting new ones, so there is never more than one of each
+            // worker per client.
+            // NOTE : DispatchEventThread is intentionally not joined here because it
+            //        may be the very thread driving this reconnect (from the
+            //        disconnection callback); it terminates itself after driving the
+            //        shutdown sequence.
+            if ((_processInflightThread != null && _processInflightThread.IsAlive) ||
+                (_receiveThread != null && _receiveThread.IsAlive) ||
+                (_keepAliveThread != null && _keepAliveThread.IsAlive))
             {
                 _isRunning = false;
+
+                // wake any worker blocked on a wait handle so it can observe the stop
                 _inflightWaitHandle.Set();
-                _processInflightThread.Join();
+                _receiveEventWaitHandle.Set();
+                _keepAliveEvent.Set();
+
+                JoinWorker(_processInflightThread);
+                JoinWorker(_keepAliveThread);
+                JoinWorker(_receiveThread);
             }
 
             _isRunning = true;
             _isConnectionClosing = false;
             // start thread for receiving messages from broker
-            Fx.StartThread(ReceiveThread);
+            _receiveThread = new Thread(ReceiveThread);
+            _receiveThread.Start();
 
             // Set the properties for v5
             if (ProtocolVersion == MqttProtocolVersion.Version_5)
@@ -525,11 +542,12 @@ namespace nanoFramework.M2Mqtt
                 if (_keepAlivePeriod != 0)
                 {
                     // start thread for sending keep alive message to the broker
-                    Fx.StartThread(KeepAliveThread);
+                    _keepAliveThread = new Thread(KeepAliveThread);
+                    _keepAliveThread.Start();
                 }
 
                 // start thread for raising received message event from broker
-                Fx.StartThread(DispatchEventThread);
+                new Thread(DispatchEventThread).Start();
 
                 // start thread for handling inflight messages queue to broker asynchronously (publish and acknowledge)
                 _processInflightThread = new Thread(ProcessInflightThread);
@@ -586,6 +604,12 @@ namespace nanoFramework.M2Mqtt
                 if (_inflightWaitHandle != null)
                 {
                     _inflightWaitHandle.Set();
+                }
+
+                // wait for inflight thread to exit (bounded, like keep alive)
+                if (_processInflightThread != null && _processInflightThread.IsAlive)
+                {
+                    _processInflightThread.Join(1000);
                 }
 
                 // unlock keep alive thread and wait
@@ -1733,6 +1757,11 @@ namespace nanoFramework.M2Mqtt
 
                             // client raw disconnection
                             OnConnectionClosed();
+
+                            // this thread has driven the shutdown; exit so that a reconnect
+                            // started from the disconnection callback doesn't leave a second
+                            // DispatchEventThread running alongside the new one
+                            return;
                         }
                     }
                 }
@@ -1747,6 +1776,18 @@ namespace nanoFramework.M2Mqtt
                     // ensure connection is flagged as closing on any exception
                     OnConnectionClosing();
                 }
+            }
+        }
+
+        /// <summary>
+        /// Join a worker thread, waiting a bounded time for it to end
+        /// </summary>
+        /// <param name="worker">The worker thread to join (may be null)</param>
+        private static void JoinWorker(Thread worker)
+        {
+            if (worker != null && worker.IsAlive)
+            {
+                worker.Join(1000);
             }
         }
 
