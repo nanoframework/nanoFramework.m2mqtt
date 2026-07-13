@@ -13,13 +13,15 @@ namespace MemoryLeakTestApp
     {
         private const string Brocker = "192.168.1.2";
         private const string Ssid = "yourssid";
-        private const string Password = "you_wifi_password";
-        private const int NumberOfLoops = 5;
+        private const string Password = "your_wifi_password";
+        private const int NumberOfLoops = 10;
         private static MqttClient client;
         private static uint freeRam = 0;
 
         public static void Main()
         {
+            SetupAndConnectNetwork();
+
             client = new MqttClient(Brocker);
 
             string clientId = Guid.NewGuid().ToString();
@@ -46,22 +48,43 @@ namespace MemoryLeakTestApp
             client.Publish("temp/free-ram", Encoding.UTF8.GetBytes(freeRam.ToString("F0")), null, null, MqttQoSLevel.AtMostOnce, false);
             // Wait a bit 
             Thread.Sleep(5_000);
-            client.Publish("temp/test", Encoding.UTF8.GetBytes($"Memory left after all the tnull, null,est: 5s"), null, null, MqttQoSLevel.AtMostOnce, false);
+            client.Publish("temp/test", Encoding.UTF8.GetBytes($"Memory left after all the test: 5s"), null, null, MqttQoSLevel.AtMostOnce, false);
             freeRam = nanoFramework.Runtime.Native.GC.Run(true);
             client.Publish("temp/free-ram", Encoding.UTF8.GetBytes(freeRam.ToString("F0")), null, null, MqttQoSLevel.AtMostOnce, false);
             // Wait more
-            Thread.Sleep(35_000);
-            client.Publish("temp/test", Encoding.UTF8.GetBytes($"Memory left after all the test: 35s"), null, null, MqttQoSLevel.AtMostOnce, false);
+            Thread.Sleep(30_000);
+            client.Publish("temp/test", Encoding.UTF8.GetBytes($"Memory left after all the test: 30s"), null, null, MqttQoSLevel.AtMostOnce, false);
             freeRam = nanoFramework.Runtime.Native.GC.Run(true);
             client.Publish("temp/free-ram", Encoding.UTF8.GetBytes(freeRam.ToString("F0")), null, null, MqttQoSLevel.AtMostOnce, false);
-            Thread.Sleep(120_000);
-            client.Publish("temp/test", Encoding.UTF8.GetBytes($"Memory left after all the test: 120s"), null, null, MqttQoSLevel.AtMostOnce, false);
-            freeRam = nanoFramework.Runtime.Native.GC.Run(true);
-            client.Publish("temp/free-ram", Encoding.UTF8.GetBytes(freeRam.ToString("F0")), null, null, MqttQoSLevel.AtMostOnce, false);
-            Thread.Sleep(Timeout.Infinite);
+            // Only when you want advance tests
+            //Thread.Sleep(120_000);
+            //client.Publish("temp/test", Encoding.UTF8.GetBytes($"Memory left after all the test: 120s"), null, null, MqttQoSLevel.AtMostOnce, false);
+            //freeRam = nanoFramework.Runtime.Native.GC.Run(true);
+            //client.Publish("temp/free-ram", Encoding.UTF8.GetBytes(freeRam.ToString("F0")), null, null, MqttQoSLevel.AtMostOnce, false);
 
+            Debug.WriteLine("Test completed");
+
+            // Let's close and reopen the connection to see if we have memory leaks
+            client.Close();
+
+            // Wait a bit
+            Thread.Sleep(5_000);
+
+            client.Connect(clientId);
+
+            Publish(MqttQoSLevel.AtMostOnce);
+            Thread.Sleep(2000);
+            Publish(MqttQoSLevel.AtLeastOnce);
+            Thread.Sleep(2000);
+            Publish(MqttQoSLevel.ExactlyOnce);
+            Thread.Sleep(2000);
+
+            Debug.WriteLine("Before disposing the client, free RAM: " + nanoFramework.Runtime.Native.GC.Run(true).ToString("F0"));
             // Testing dispose
             client.Dispose();
+            Debug.WriteLine("After disposing the client, free RAM: " + nanoFramework.Runtime.Native.GC.Run(true).ToString("F0"));
+
+            Thread.Sleep(Timeout.Infinite);
         }
 
         private static void Publish(MqttQoSLevel level)
@@ -115,7 +138,7 @@ namespace MemoryLeakTestApp
                     Debug.WriteLine("Network connection is: Wi-Fi");
 
                     Wireless80211Configuration wc = Wireless80211Configuration.GetAllWireless80211Configurations()[ni.SpecificConfigId];
-                    if (wc.Ssid != Ssid && wc.Password != Password)
+                    if (wc.Ssid != Ssid || wc.Password != Password)
                     {
                         // have to update Wi-Fi configuration
                         wc.Ssid = Ssid;
