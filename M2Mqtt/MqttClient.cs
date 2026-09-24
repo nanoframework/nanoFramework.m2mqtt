@@ -47,6 +47,7 @@ namespace nanoFramework.M2Mqtt
         private Thread _processInflightThread;
         private Thread _receiveThread;
         private Thread _keepAliveThread;
+        private Thread _dispatchEventThread;
         // event for raising received message event
         private AutoResetEvent _receiveEventWaitHandle;
 
@@ -555,7 +556,8 @@ namespace nanoFramework.M2Mqtt
                 }
 
                 // start thread for raising received message event from broker
-                new Thread(DispatchEventThread).Start();
+                _dispatchEventThread = new Thread(DispatchEventThread);
+                _dispatchEventThread.Start();
 
                 // start thread for handling inflight messages queue to broker asynchronously (publish and acknowledge)
                 _processInflightThread = new Thread(ProcessInflightThread);
@@ -1556,6 +1558,7 @@ namespace nanoFramework.M2Mqtt
                         _exReceiving = new MqttCommunicationException();
                         // wake up thread that will notify connection is closing
                         OnConnectionClosing();
+                        StopReceivingIfNotDispatching();
                         _syncEndReceiving.Set();
                     }
                 }
@@ -1591,9 +1594,34 @@ namespace nanoFramework.M2Mqtt
                     {
                         // wake up thread that will notify connection is closing
                         OnConnectionClosing();
+                        StopReceivingIfNotDispatching();
                         _syncEndReceiving.Set();
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Stops the receive loop and closes the channel when the connection fails
+        /// before <see cref="DispatchEventThread"/> is running (e.g. during the CONNECT/CONNACK handshake),
+        /// as there is no other thread to drive <see cref="Close"/> in that case.
+        /// </summary>
+        private void StopReceivingIfNotDispatching()
+        {
+            if (_dispatchEventThread != null && _dispatchEventThread.IsAlive)
+            {
+                return;
+            }
+
+            _isRunning = false;
+
+            try
+            {
+                _channel?.Close();
+            }
+            catch
+            {
+                // best effort cleanup
             }
         }
 
