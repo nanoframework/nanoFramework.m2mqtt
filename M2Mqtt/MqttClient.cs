@@ -612,6 +612,23 @@ namespace nanoFramework.M2Mqtt
 
                     JoinWorker(_receiveThread);
 
+                    // drop transient entries (e.g. session messages re-queued by RestoreSession)
+                    // so a later Connect doesn't process them twice
+                    lock (_inflightQueue)
+                    {
+                        _inflightQueue.Clear();
+                    }
+
+                    lock (_internalQueue)
+                    {
+                        _internalQueue.Clear();
+                    }
+
+                    lock (_eventQueue)
+                    {
+                        _eventQueue.Clear();
+                    }
+
                     throw new MqttCommunicationException();
                 }
             }
