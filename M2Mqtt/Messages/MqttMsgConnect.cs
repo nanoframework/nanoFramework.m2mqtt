@@ -260,7 +260,7 @@ namespace nanoFramework.M2Mqtt.Messages
             buffer = new byte[remainingLength];
 
             // read bytes from socket...
-            channel.Receive(buffer);
+            ReceiveExactly(channel, buffer);
 
             // protocol name
             msg.ProtocolName = EncodeDecodeHelper.GetUTF8FromBuffer(buffer, ref index);

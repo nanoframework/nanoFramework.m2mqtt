@@ -47,6 +47,7 @@ namespace nanoFramework.M2Mqtt
         private Thread _processInflightThread;
         private Thread _receiveThread;
         private Thread _keepAliveThread;
+        private Thread _dispatchEventThread;
         // event for raising received message event
         private AutoResetEvent _receiveEventWaitHandle;
 
@@ -451,6 +452,14 @@ namespace nanoFramework.M2Mqtt
             {
                 // Set the certificate check
                 _channel.ValidateServerCertificate = _settings.ValidateServerCertificate;
+
+                // limit send operations to the keep alive period so a broker that's gone
+                // without closing the connection is detected instead of blocking forever
+                if (_channel is MqttNetworkChannel networkChannel && keepAlivePeriod > 0)
+                {
+                    networkChannel.SendTimeout = keepAlivePeriod * 1000;
+                }
+
                 // connect to the broker
                 _channel.Connect();
             }
@@ -547,7 +556,8 @@ namespace nanoFramework.M2Mqtt
                 }
 
                 // start thread for raising received message event from broker
-                new Thread(DispatchEventThread).Start();
+                _dispatchEventThread = new Thread(DispatchEventThread);
+                _dispatchEventThread.Start();
 
                 // start thread for handling inflight messages queue to broker asynchronously (publish and acknowledge)
                 _processInflightThread = new Thread(ProcessInflightThread);
@@ -1548,6 +1558,7 @@ namespace nanoFramework.M2Mqtt
                         _exReceiving = new MqttCommunicationException();
                         // wake up thread that will notify connection is closing
                         OnConnectionClosing();
+                        StopReceivingIfNotDispatching();
                         _syncEndReceiving.Set();
                     }
                 }
@@ -1567,10 +1578,14 @@ namespace nanoFramework.M2Mqtt
                                 (ex.ErrorCode == MqttClientErrorCode.InvalidProtocolName) ||
                                 (ex.ErrorCode == MqttClientErrorCode.InvalidConnectFlags);
                     }
-                    else if ((e.GetType() == typeof(IOException))
-                             || (e.GetType() == typeof(SocketException))
+                    else if ((e is IOException)
+                             || (e is SocketException)
+                             // connection closed by the peer while reading a message
+                             || (e is MqttCommunicationException)
+                             // channel was closed/disposed
+                             || (e is ObjectDisposedException)
                              // added for SSL/TLS incoming connection that use SslStream that wraps SocketException
-                             || ((e.InnerException != null) && (e.InnerException.GetType() == typeof(SocketException))))
+                             || ((e.InnerException != null) && (e.InnerException is SocketException)))
                     {
                         close = true;
                     }
@@ -1579,9 +1594,34 @@ namespace nanoFramework.M2Mqtt
                     {
                         // wake up thread that will notify connection is closing
                         OnConnectionClosing();
+                        StopReceivingIfNotDispatching();
                         _syncEndReceiving.Set();
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Stops the receive loop and closes the channel when the connection fails
+        /// before <see cref="DispatchEventThread"/> is running (e.g. during the CONNECT/CONNACK handshake),
+        /// as there is no other thread to drive <see cref="Close"/> in that case.
+        /// </summary>
+        private void StopReceivingIfNotDispatching()
+        {
+            if (_dispatchEventThread != null && _dispatchEventThread.IsAlive)
+            {
+                return;
+            }
+
+            _isRunning = false;
+
+            try
+            {
+                _channel?.Close();
+            }
+            catch
+            {
+                // best effort cleanup
             }
         }
 
