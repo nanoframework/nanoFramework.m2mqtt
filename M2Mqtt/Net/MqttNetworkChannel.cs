@@ -78,6 +78,16 @@ namespace nanoFramework.M2Mqtt
         public bool ValidateServerCertificate { get; set; } = true;
 
         /// <summary>
+        /// Timeout (in milliseconds) for send operations on the underlying socket.
+        /// Default is <see cref="System.Threading.Timeout.Infinite"/>.
+        /// </summary>
+        /// <remarks>
+        /// With an infinite timeout, a send to a peer that's gone without closing the connection (power loss, network down) can block forever.
+        /// Must be set before calling <see cref="Connect"/>.
+        /// </remarks>
+        public int SendTimeout { get; set; } = System.Threading.Timeout.Infinite;
+
+        /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="socket">Socket opened with the client</param>
@@ -179,6 +189,9 @@ namespace nanoFramework.M2Mqtt
             }
 
             _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            // make sure a send to a dead connection doesn't block forever
+            _socket.SendTimeout = SendTimeout;
 
             // try connection to the broker
             _socket.Connect(new IPEndPoint(_remoteIpAddress, _remotePort));

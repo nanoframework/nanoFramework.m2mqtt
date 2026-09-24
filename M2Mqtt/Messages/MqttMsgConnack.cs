@@ -165,7 +165,7 @@ namespace nanoFramework.M2Mqtt.Messages
             buffer = new byte[remainingLength];
 
             // read bytes from socket...
-            channel.Receive(buffer);
+            ReceiveExactly(channel, buffer);
             if ((protocolVersion == MqttProtocolVersion.Version_3_1_1) || (protocolVersion == MqttProtocolVersion.Version_5))
             {
                 // [v3.1.1] ... set session present flag ...

@@ -15,6 +15,7 @@ Contributors:
    .NET Foundation and Contributors - nanoFramework support
 */
 
+using nanoFramework.M2Mqtt.Exceptions;
 using System;
 using System.Collections;
 using System.Text;
@@ -148,20 +149,79 @@ namespace nanoFramework.M2Mqtt.Messages
             int multiplier = 1;
             int value = 0;
             int digit = 0;
+            int bytesDecoded = 0;
             byte[] nextByte = new byte[1];
             do
             {
-                // next digit from stream
-                if (channel is object)
+                // variable byte integer is encoded in 4 bytes max
+                if (bytesDecoded++ >= 4)
                 {
-                    channel.Receive(nextByte);
+                    throw new MqttCommunicationException();
                 }
+
+                // next digit from stream
+                ReceiveExactly(channel, nextByte);
 
                 digit = nextByte[0];
                 value += ((digit & 127) * multiplier);
                 multiplier *= 128;
             } while ((digit & 128) != 0);
             return value;
+        }
+
+        /// <summary>
+        /// Fill the buffer with bytes read from the channel.
+        /// </summary>
+        /// <param name="channel">Channel from reading bytes</param>
+        /// <param name="buffer">Buffer to fill</param>
+        /// <returns>Number of bytes received, which is always the buffer length.</returns>
+        /// <exception cref="MqttCommunicationException">The channel is not available or the connection was closed before the buffer was filled.</exception>
+        protected static int ReceiveExactly(IMqttNetworkChannel channel, byte[] buffer)
+        {
+            if (buffer.Length == 0)
+            {
+                return 0;
+            }
+
+            if (channel is null)
+            {
+                throw new MqttCommunicationException();
+            }
+
+            int received = channel.Receive(buffer);
+
+            if (received <= 0)
+            {
+                // connection closed by the peer
+                throw new MqttCommunicationException();
+            }
+
+            if (received < buffer.Length)
+            {
+                // channel returned a partial read: accumulate the remaining bytes
+                byte[] chunk = new byte[buffer.Length - received];
+
+                while (received < buffer.Length)
+                {
+                    if (chunk.Length != buffer.Length - received)
+                    {
+                        chunk = new byte[buffer.Length - received];
+                    }
+
+                    int read = channel.Receive(chunk);
+
+                    if (read <= 0)
+                    {
+                        // connection closed by the peer before the buffer was filled
+                        throw new MqttCommunicationException();
+                    }
+
+                    Array.Copy(chunk, 0, buffer, received, read);
+                    received += read;
+                }
+            }
+
+            return buffer.Length;
         }
 
 #if DEBUG

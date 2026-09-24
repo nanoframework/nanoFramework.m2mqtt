@@ -353,7 +353,7 @@ namespace nanoFramework.M2Mqtt.Messages
             buffer = new byte[remainingLength];
 
             // read bytes from socket...
-            int received = channel.Receive(buffer);
+            int received = ReceiveExactly(channel, buffer);
 
             // topic name
             topicUtf8Length = ((buffer[index++] << 8) & 0xFF00);
@@ -457,6 +457,13 @@ namespace nanoFramework.M2Mqtt.Messages
             {
                 // receive other payload data
                 received = channel.Receive(buffer);
+
+                if (received <= 0)
+                {
+                    // connection closed by the peer before the payload was complete
+                    throw new MqttCommunicationException();
+                }
+
                 Array.Copy(buffer, 0, msg.Message, messageOffset, received);
                 remaining -= received;
                 messageOffset += received;
