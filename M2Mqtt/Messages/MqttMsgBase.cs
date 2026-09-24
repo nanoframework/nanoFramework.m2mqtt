@@ -183,11 +183,42 @@ namespace nanoFramework.M2Mqtt.Messages
                 return 0;
             }
 
-            if (channel is null
-                || channel.Receive(buffer) < buffer.Length)
+            if (channel is null)
             {
-                // zero or less bytes than expected: connection closed by the peer
                 throw new MqttCommunicationException();
+            }
+
+            int received = channel.Receive(buffer);
+
+            if (received <= 0)
+            {
+                // connection closed by the peer
+                throw new MqttCommunicationException();
+            }
+
+            if (received < buffer.Length)
+            {
+                // channel returned a partial read: accumulate the remaining bytes
+                byte[] chunk = new byte[buffer.Length - received];
+
+                while (received < buffer.Length)
+                {
+                    if (chunk.Length != buffer.Length - received)
+                    {
+                        chunk = new byte[buffer.Length - received];
+                    }
+
+                    int read = channel.Receive(chunk);
+
+                    if (read <= 0)
+                    {
+                        // connection closed by the peer before the buffer was filled
+                        throw new MqttCommunicationException();
+                    }
+
+                    Array.Copy(chunk, 0, buffer, received, read);
+                    received += read;
+                }
             }
 
             return buffer.Length;
