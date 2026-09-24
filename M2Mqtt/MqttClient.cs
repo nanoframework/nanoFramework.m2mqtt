@@ -451,6 +451,14 @@ namespace nanoFramework.M2Mqtt
             {
                 // Set the certificate check
                 _channel.ValidateServerCertificate = _settings.ValidateServerCertificate;
+
+                // limit send operations to the keep alive period so a broker that's gone
+                // without closing the connection is detected instead of blocking forever
+                if (_channel is MqttNetworkChannel networkChannel && keepAlivePeriod > 0)
+                {
+                    networkChannel.SendTimeout = keepAlivePeriod * 1000;
+                }
+
                 // connect to the broker
                 _channel.Connect();
             }
@@ -1567,10 +1575,14 @@ namespace nanoFramework.M2Mqtt
                                 (ex.ErrorCode == MqttClientErrorCode.InvalidProtocolName) ||
                                 (ex.ErrorCode == MqttClientErrorCode.InvalidConnectFlags);
                     }
-                    else if ((e.GetType() == typeof(IOException))
-                             || (e.GetType() == typeof(SocketException))
+                    else if ((e is IOException)
+                             || (e is SocketException)
+                             // connection closed by the peer while reading a message
+                             || (e is MqttCommunicationException)
+                             // channel was closed/disposed
+                             || (e is ObjectDisposedException)
                              // added for SSL/TLS incoming connection that use SslStream that wraps SocketException
-                             || ((e.InnerException != null) && (e.InnerException.GetType() == typeof(SocketException))))
+                             || ((e.InnerException != null) && (e.InnerException is SocketException)))
                     {
                         close = true;
                     }

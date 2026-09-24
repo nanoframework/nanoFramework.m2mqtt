@@ -78,7 +78,7 @@ namespace nanoFramework.M2Mqtt.Messages
             buffer = new byte[remainingLength];
 
             // read bytes from socket...
-            channel.Receive(buffer);
+            ReceiveExactly(channel, buffer);
 
             // message id
             msg.MessageId = (ushort)((buffer[index++] << 8) & 0xFF00);

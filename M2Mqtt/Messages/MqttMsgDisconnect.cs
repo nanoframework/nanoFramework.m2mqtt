@@ -83,7 +83,7 @@ namespace nanoFramework.M2Mqtt.Messages
                 buffer = new byte[remainingLength];
 
                 // read bytes from socket...
-                channel.Receive(buffer);
+                ReceiveExactly(channel, buffer);
                 msg.ResonCode = (MqttReasonCode)buffer[index++];
                 int propSize = EncodeDecodeHelper.GetPropertySize(buffer, ref index);
                 propSize += index;

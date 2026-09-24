@@ -190,7 +190,7 @@ namespace nanoFramework.M2Mqtt.Messages
             buffer = new byte[remainingLength];
 
             // read bytes from socket...
-            channel.Receive(buffer);
+            ReceiveExactly(channel, buffer);
 
             if (protocolVersion == MqttProtocolVersion.Version_3_1)
             {
