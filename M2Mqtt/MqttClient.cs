@@ -74,6 +74,11 @@ namespace nanoFramework.M2Mqtt
         // lock to serialize writes to the network channel across threads
         // (inflight/process thread, keep alive thread, ...)
         private readonly object _channelSendLock = new object();
+        // guards _isConnectionClosing, _dispatcherOwnsShutdown and IsConnected transitions
+        // between Connect and the worker threads
+        private readonly object _connectionStateLock = new object();
+        // true once Connect has handed shutdown responsibility to this connection's DispatchEventThread
+        private bool _dispatcherOwnsShutdown;
 
         // inflight messages queue
         private Queue _inflightQueue;
@@ -424,6 +429,7 @@ namespace nanoFramework.M2Mqtt
         /// <param name="cleanSession">Clean sessione flag</param>
         /// <param name="keepAlivePeriod">Keep alive period</param>
         /// <returns>Return code of CONNACK message from broker</returns>
+        /// <exception cref="MqttCommunicationException">The connection was lost during the handshake, including right after a successful CONNACK (in which case <see cref="ConnectionOpened"/> may already have been raised).</exception>
         public MqttReasonCode Connect(string clientId,
             string username,
             string password,
@@ -498,8 +504,13 @@ namespace nanoFramework.M2Mqtt
                 JoinWorker(_receiveThread);
             }
 
-            _isRunning = true;
-            _isConnectionClosing = false;
+            lock (_connectionStateLock)
+            {
+                _isRunning = true;
+                _isConnectionClosing = false;
+                _dispatcherOwnsShutdown = false;
+            }
+
             // start thread for receiving messages from broker
             _receiveThread = new Thread(ReceiveThread);
             _receiveThread.Start();
@@ -547,25 +558,61 @@ namespace nanoFramework.M2Mqtt
                 // restore previous session
                 RestoreSession();
 
-                // keep alive period equals zero means turning off keep alive mechanism
-                if (_keepAlivePeriod != 0)
+                bool connectionLost;
+
+                lock (_connectionStateLock)
                 {
-                    // start thread for sending keep alive message to the broker
-                    _keepAliveThread = new Thread(KeepAliveThread);
-                    _keepAliveThread.Start();
+                    // the connection may have dropped after CONNACK was received
+                    connectionLost = _isConnectionClosing || !_isRunning;
+
+                    if (!connectionLost)
+                    {
+                        // keep alive period equals zero means turning off keep alive mechanism
+                        if (_keepAlivePeriod != 0)
+                        {
+                            // start thread for sending keep alive message to the broker
+                            _keepAliveThread = new Thread(KeepAliveThread);
+                            _keepAliveThread.Start();
+                        }
+
+                        // start thread for raising received message event from broker
+                        _dispatchEventThread = new Thread(DispatchEventThread);
+                        _dispatchEventThread.Start();
+
+                        // from now on the dispatcher drives Close() and ConnectionClosed
+                        _dispatcherOwnsShutdown = true;
+
+                        // start thread for handling inflight messages queue to broker asynchronously (publish and acknowledge)
+                        _processInflightThread = new Thread(ProcessInflightThread);
+                        _processInflightThread.Start();
+
+                        if (!IsAuthenticationFlow)
+                        {
+                            IsConnected = true;
+                        }
+                    }
                 }
 
-                // start thread for raising received message event from broker
-                _dispatchEventThread = new Thread(DispatchEventThread);
-                _dispatchEventThread.Start();
-
-                // start thread for handling inflight messages queue to broker asynchronously (publish and acknowledge)
-                _processInflightThread = new Thread(ProcessInflightThread);
-                _processInflightThread.Start();
-
-                if (!IsAuthenticationFlow)
+                if (connectionLost)
                 {
-                    IsConnected = true;
+                    // connection dropped between CONNACK and the workers starting: nobody else
+                    // will drive Close()/ConnectionClosed, so tear down here and report it
+                    // like any other handshake failure
+                    _isRunning = false;
+                    IsConnected = false;
+
+                    try
+                    {
+                        _channel?.Close();
+                    }
+                    catch
+                    {
+                        // best effort cleanup
+                    }
+
+                    JoinWorker(_receiveThread);
+
+                    throw new MqttCommunicationException();
                 }
             }
 
@@ -888,15 +935,18 @@ namespace nanoFramework.M2Mqtt
         /// </summary>
         private void OnConnectionClosing()
         {
-            if (!_isConnectionClosing)
+            lock (_connectionStateLock)
             {
-                _isConnectionClosing = true;
+                if (!_isConnectionClosing)
+                {
+                    _isConnectionClosing = true;
 
-                // set IsConnected to false immediately so user code can detect
-                // the failure without waiting for Close() to complete
-                IsConnected = false;
+                    // set IsConnected to false immediately so user code can detect
+                    // the failure without waiting for Close() to complete
+                    IsConnected = false;
 
-                _receiveEventWaitHandle.Set();
+                    _receiveEventWaitHandle.Set();
+                }
             }
         }
 
@@ -1401,7 +1451,14 @@ namespace nanoFramework.M2Mqtt
                                     // restore previous session
                                     RestoreSession();
 
-                                    IsConnected = true;
+                                    lock (_connectionStateLock)
+                                    {
+                                        // don't overwrite a connection already flagged as closing
+                                        if (!_isConnectionClosing)
+                                        {
+                                            IsConnected = true;
+                                        }
+                                    }
                                 }
 #if DEBUG
                                 Debug.WriteLine($"RECV {_msgReceived}");
@@ -1608,12 +1665,17 @@ namespace nanoFramework.M2Mqtt
         /// </summary>
         private void StopReceivingIfNotDispatching()
         {
-            if (_dispatchEventThread != null && _dispatchEventThread.IsAlive)
+            // checking the thread's IsAlive isn't enough: on a reconnect from the ConnectionClosed
+            // callback _dispatchEventThread still refers to the previous, exiting, dispatcher
+            lock (_connectionStateLock)
             {
-                return;
-            }
+                if (_dispatcherOwnsShutdown)
+                {
+                    return;
+                }
 
-            _isRunning = false;
+                _isRunning = false;
+            }
 
             try
             {
