@@ -103,6 +103,9 @@
       <HintPath>..\packages\nanoFramework.System.Threading.2.0.0-preview.14\lib\netnano1.0\System.Threading.dll</HintPath>
     </Reference>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\nanoFramework.M2Mqtt.Core\nanoFramework.M2Mqtt.Core.nfproj" />
+  </ItemGroup>
   <Import Project="$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets" Condition="Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')" />
   <ProjectExtensions>
     <ProjectCapabilities>
