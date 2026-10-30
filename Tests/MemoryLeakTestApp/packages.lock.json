@@ -22,9 +22,9 @@
       },
       "nanoFramework.System.Device.Wifi": {
         "type": "Direct",
-        "requested": "[2.0.0-preview.43, 2.0.0-preview.43]",
-        "resolved": "2.0.0-preview.43",
-        "contentHash": "/B8YPNzbCydDF3biS3S0eOMFttZNQ1qFGQWP+guEssQ89fxvXFumfffJhzza0mTtn4RnqxzXcy3myqJ54eeQfA=="
+        "requested": "[2.0.0-preview.45, 2.0.0-preview.45]",
+        "resolved": "2.0.0-preview.45",
+        "contentHash": "gLgNsnJG6iXL7ULdescqb+tkc9TjUTkFVhDaQZlWZ9AJTP0+dhdrh3nFsQE/Y4My1QxzoluSB9NVrgW2MhL1dg=="
       },
       "nanoFramework.System.IO.Streams": {
         "type": "Direct",
