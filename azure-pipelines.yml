@@ -100,9 +100,9 @@ jobs:
       gitHubConnection: 'github.com_nano-$(System.TeamProject)'
       tagSource: userSpecifiedTag
       tag: v$(MY_NUGET_VERSION)
-      title: '$(nugetPackageName) Library v$(MY_NUGET_VERSION)'
+      title: 'v$(MY_NUGET_VERSION)'
       releaseNotesSource: inline
-      releaseNotesInline: 'Check the [changelog]($(Build.Repository.Uri)/blob/$(Build.SourceBranchName)/CHANGELOG.md).<br><br><h4>Install from NuGet</h4><br>The following NuGet packages are available for download from this release:<br>:package: [nanoFramework.M2Mqtt](https://www.nuget.org/packages/$(nugetPackageName)/$(MY_NUGET_VERSION)) v$(MY_NUGET_VERSION).<br>:package: [nanoFramework.M2Mqtt.Core (interface only)](https://www.nuget.org/packages/nanoFramework.M2Mqtt.Core/$(MY_NUGET_VERSION)) v$(MY_NUGET_VERSION)'
+      releaseNotesInline: 'Install from NuGet</h4><br>The following NuGet packages are available for download from this release:<br>:package: [nanoFramework.M2Mqtt](https://www.nuget.org/packages/$(nugetPackageName)/$(MY_NUGET_VERSION)) v$(MY_NUGET_VERSION).<br>:package: [nanoFramework.M2Mqtt.Core (interface only)](https://www.nuget.org/packages/nanoFramework.M2Mqtt.Core/$(MY_NUGET_VERSION)) v$(MY_NUGET_VERSION)'
       assets: '$(Build.ArtifactStagingDirectory)/*.nupkg'
       assetUploadMode: replace
       isPreRelease: false
